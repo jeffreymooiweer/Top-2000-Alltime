@@ -1,66 +1,75 @@
 // services/geminiService.ts
-import * as webllm from "@mlc-ai/web-llm";
+// Gebruikt Groq's OpenAI-compatibele Chat Completions API vanuit de browser.
 
-const MODEL_NAME = "SmolLM2-360M-Instruct-q4f16_1-MLC";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// Zorg dat het model maar één keer per tab wordt geladen
-let enginePromise: Promise<webllm.MLCEngine> | null = null;
+// Snel én relatief goedkoop model
+const GROQ_MODEL = "llama-3.1-8b-instant";
 
-async function getEngine(): Promise<webllm.MLCEngine> {
-  if (!enginePromise) {
-    enginePromise = (async () => {
-      console.log("WebLLM: model wordt geladen:", MODEL_NAME);
-      const engine = await webllm.CreateMLCEngine(MODEL_NAME, {
-        initProgressCallback: (report) => {
-          console.log(
-            "WebLLM laadvoortgang:",
-            report.progress,
-            report.text ?? ""
-          );
-        },
-      });
-      console.log("WebLLM klaar");
-      return engine;
-    })();
-  }
-  return enginePromise;
-}
+// ⚠️ LET OP: alles wat je hier invult is publiek zichtbaar in de browser.
+// Gebruik bij voorkeur een key die je kunt weggooien en hou rekening met mogelijk misbruik.
+const GROQ_API_KEY = "PLAATS_HIER_JE_GROQ_API_KEY";
 
 export const getSongAnalysis = async (
   artist: string,
   title: string
 ): Promise<string> => {
   try {
-    const engine = await getEngine();
+    if (!GROQ_API_KEY || GROQ_API_KEY === "PLAATS_HIER_JE_GROQ_API_KEY") {
+      console.warn("Groq API key is niet ingesteld.");
+      return "Kon geen analyse laden op dit moment.";
+    }
 
-    const messages: webllm.ChatCompletionMessageParam[] = [
-      {
-        role: "system",
-        content:
-          "Je bent een Nederlandse muziekjournalist die korte, enthousiaste teksten schrijft over nummers uit de Top 2000.",
-      },
-      {
-        role: "user",
-        content:
-          `Schrijf maximaal 80 woorden in het Nederlands over waarom het nummer ` +
-          `"${title}" van "${artist}" zo geliefd is in de Top 2000. ` +
-          `Focus op emotie, nostalgie of culturele betekenis.`,
-      },
-    ];
+    const prompt =
+      `Schrijf in het Nederlands een korte, enthousiaste uitleg (max 80 woorden) ` +
+      `over waarom het nummer "${title}" van "${artist}" zo populair is in de Top 2000. ` +
+      `Focus op emotie, nostalgie, mee-zingen of historische betekenis. ` +
+      `Schrijf alsof je een dj van NPO Radio 2 bent.`;
 
-    const reply = await engine.chat.completions.create({
-      messages,
-      temperature: 0.8,
-      max_tokens: 120,
+    const response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Je bent een Nederlandse muziekjournalist die korte, vlotte teksten schrijft over Top 2000-nummers.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.8,
+        max_tokens: 150,
+      }),
     });
 
-    const text = reply.choices?.[0]?.message?.content?.trim();
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      console.error("Groq API error status:", response.status, errText);
+      return "Kon geen analyse laden op dit moment.";
+    }
+
+    const data: any = await response.json();
+
+    const text =
+      data?.choices?.[0]?.message?.content?.trim() ??
+      data?.choices?.[0]?.message?.content ??
+      "";
+
     if (!text) {
       return "Geen analyse beschikbaar.";
     }
+
     return text;
   } catch (error) {
-    console.error("WebLLM Error:", error);
+    console.error("Groq API fout:", error);
     return "Kon geen analyse laden op dit moment.";
   }
 };
