@@ -1,4 +1,4 @@
-ciDeploy Top-2000-Alltime to GitHub Pages
+name: Deploy Top-2000-Alltime to GitHub Pages
 
 on:
   push:
@@ -32,9 +32,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build project
+      - name: Build Vite project
         env:
-          # eventueel nodig als je env vars gebruikt in Vite
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: npm run build
 
