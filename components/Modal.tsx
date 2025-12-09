@@ -287,7 +287,7 @@ const Modal: React.FC<ModalProps> = ({
                     </svg>
                   </div>
                   <p className="text-[10px] text-gray-400 mt-4 text-right">
-                    Analyse lokaal gegenereerd met WebLLM
+                    Analyse gegenereerd met Groq (llama-3.1-8b-instant)
                   </p>
                 </div>
               </section>
