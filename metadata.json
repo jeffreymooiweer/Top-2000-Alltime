@@ -1,0 +1,5 @@
+{
+  "name": "Top 2000 Allertijden",
+  "description": "Een interactieve weergave van de Top 2000 Allertijden, berekend op basis van historische noteringen met audioplayers en statistieken.",
+  "requestFramePermissions": []
+}
