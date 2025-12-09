@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Top 2000 Allertijden</title>
 
-    <!-- Tailwind & Fonts -->
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fonts -->
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@400;500;700&display=swap"
       rel="stylesheet"
@@ -14,22 +16,41 @@
 
     <style>
       body {
-        font-family: 'Inter', sans-serif;
-        background-color: #f3f4f6; /* Light gray background */
+        font-family: "Inter", sans-serif;
+        background-color: #f3f4f6;
         color: #1f2937;
       }
-      h1, h2, h3, .brand-font {
-        font-family: 'Oswald', sans-serif;
+      h1,
+      h2,
+      h3,
+      .brand-font {
+        font-family: "Oswald", sans-serif;
       }
+
       :root {
         --npo-red: #d00018;
       }
     </style>
+
+    <!-- AI Studio import maps (blijven gewoon werken) -->
+    <script type="importmap">
+      {
+        "imports": {
+          "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+          "react/": "https://aistudiocdn.com/react@^19.2.1/",
+          "react": "https://aistudiocdn.com/react@^19.2.1",
+          "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+          "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0"
+        }
+      }
+    </script>
   </head>
 
   <body>
     <div id="root"></div>
-    <!-- Vite injects the JS bundle here -->
-    <script type="module" src="/Top-2000-Alltime/src/main.tsx"></script>
+
+    <!-- ⭐ IMPORTANT ⭐ -->
+    <!-- Dit is de Vite entry → essentieel voor build op GitHub Pages -->
+    <script type="module" src="/Top-2000-Alltime/index.tsx"></script>
   </body>
 </html>
