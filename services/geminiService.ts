@@ -8,7 +8,7 @@ const GROQ_MODEL = "llama-3.1-8b-instant";
 
 // ⚠️ LET OP: alles wat je hier invult is publiek zichtbaar in de browser.
 // Gebruik bij voorkeur een key die je kunt weggooien en hou rekening met mogelijk misbruik.
-const GROQ_API_KEY = "PLAATS_HIER_JE_GROQ_API_KEY";
+const GROQ_API_KEY = "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;
 
 export const getSongAnalysis = async (
   artist: string,
