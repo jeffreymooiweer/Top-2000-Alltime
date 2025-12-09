@@ -3,6 +3,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { SongData } from './types';
 import { scrapeWikipediaData } from './services/wikipediaService'; 
 import { prefetchMetadata } from './services/itunesService';
+import { initiateSpotifyLogin, handleSpotifyCallback, createSpotifyPlaylist, isSpotifyLoggedIn } from './services/spotifyService';
 import Modal from './components/Modal';
 import SongCard from './components/SongCard';
 import NewsFeed from './components/NewsFeed';
@@ -46,6 +47,10 @@ const App: React.FC = () => {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   
+  // Spotify State
+  const [isSpotifyLoading, setIsSpotifyLoading] = useState(false);
+  const [spotifyMessage, setSpotifyMessage] = useState<string | null>(null);
+  
   // Year Selection State: 'all-time' or a specific year string like '2023'
   const [selectedYear, setSelectedYear] = useState<string>('all-time');
   
@@ -54,6 +59,22 @@ const App: React.FC = () => {
   const observerTarget = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
+  // Handle Spotify OAuth Callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('code') && urlParams.get('state')) {
+      // We're returning from Spotify OAuth
+      handleSpotifyCallback().then(token => {
+        if (token) {
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setSpotifyMessage('Succesvol ingelogd bij Spotify!');
+          setTimeout(() => setSpotifyMessage(null), 3000);
+        }
+      });
+    }
+  }, []);
+
   // Initialize Data
   useEffect(() => {
     const initData = async () => {
@@ -296,6 +317,48 @@ const App: React.FC = () => {
       setIsDownloadOpen(false);
   };
 
+  const handleSpotifyExport = async () => {
+    setIsDownloadOpen(false);
+    
+    // Check if logged in
+    if (!isSpotifyLoggedIn()) {
+      // Start OAuth flow
+      initiateSpotifyLogin();
+      return;
+    }
+
+    // Create playlist with current filtered songs
+    setIsSpotifyLoading(true);
+    setSpotifyMessage(null);
+
+    try {
+      const songsToExport = processedSongs.map(song => ({
+        artist: song.artist,
+        title: song.title,
+      }));
+
+      const playlistName = selectedYear === 'all-time' 
+        ? `Top 2000 Allertijden (${processedSongs.length} nummers)`
+        : `Top 2000 ${selectedYear} (${processedSongs.length} nummers)`;
+
+      const result = await createSpotifyPlaylist(songsToExport, playlistName);
+      
+      if (result.success && result.playlistUrl) {
+        setSpotifyMessage(result.message);
+        // Open playlist in new tab
+        window.open(result.playlistUrl, '_blank');
+      } else {
+        setSpotifyMessage(result.message || 'Er ging iets mis.');
+      }
+    } catch (error: any) {
+      console.error('Spotify export error:', error);
+      setSpotifyMessage(error.message || 'Er ging iets mis bij het exporteren.');
+    } finally {
+      setIsSpotifyLoading(false);
+      setTimeout(() => setSpotifyMessage(null), 5000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f3f4f6] font-sans">
       
@@ -337,6 +400,18 @@ const App: React.FC = () => {
             </button>
         </div>
       </header>
+
+      {/* Spotify Status Message */}
+      {spotifyMessage && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-white rounded-lg shadow-xl px-6 py-4 border-l-4 border-green-500 animate-fade-in-up">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <p className="text-gray-800 font-medium">{spotifyMessage}</p>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto md:px-4">
       
@@ -397,7 +472,21 @@ const App: React.FC = () => {
                          {/* Download Menu Dropdown */}
                          {isDownloadOpen && (
                              <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5">
-                                 <button onClick={() => downloadDummy('Excel')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
+                                 <button 
+                                     onClick={handleSpotifyExport}
+                                     disabled={isSpotifyLoading}
+                                     className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                 >
+                                     <div className="w-6 h-6 bg-green-500 text-white flex items-center justify-center rounded text-xs font-bold">
+                                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                             <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+                                         </svg>
+                                     </div>
+                                     <span className="font-medium">
+                                         {isSpotifyLoading ? 'Bezig...' : isSpotifyLoggedIn() ? 'Export naar Spotify' : 'Login met Spotify'}
+                                     </span>
+                                 </button>
+                                 <button onClick={() => downloadDummy('Excel')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
                                      <div className="w-6 h-6 bg-green-700 text-white flex items-center justify-center rounded text-xs font-bold">X</div>
                                      <span className="font-medium">Download Excel</span>
                                  </button>
