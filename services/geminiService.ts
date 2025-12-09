@@ -23,8 +23,7 @@ export const getSongAnalysis = async (
     const prompt =
       `Schrijf in het Nederlands een korte, enthousiaste uitleg (max 80 woorden) ` +
       `over waarom het nummer "${title}" van "${artist}" zo populair is in de Top 2000. ` +
-      `Focus op emotie, nostalgie, mee-zingen of historische betekenis. ` +
-      `Schrijf alsof je een dj van NPO Radio 2 bent.`;
+      `Focus op emotie, nostalgie, mee-zingen of historische betekenis. En deel triviant weetjes over deze track.`;
 
     const response = await fetch(GROQ_API_URL, {
       method: "POST",
