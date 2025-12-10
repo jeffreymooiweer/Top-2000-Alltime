@@ -68,6 +68,7 @@ const App: React.FC = () => {
   // Streaming Setup State
   const [streamingSetupService, setStreamingSetupService] = useState<'spotify' | 'deezer' | 'youtube' | null>(null);
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
+  const [isProcessingCallback, setIsProcessingCallback] = useState(false);
   
   // Year Selection State: 'all-time' or a specific year string like '2023'
   const [selectedYear, setSelectedYear] = useState<string>('all-time');
@@ -124,27 +125,78 @@ const App: React.FC = () => {
   
   // Handle OAuth Callbacks
   useEffect(() => {
-    const hash = window.location.hash;
+    const processCallback = () => {
+      const hash = window.location.hash;
+      const searchParams = new URLSearchParams(window.location.search);
+      
+      console.log('Checking OAuth callback...', { hash, search: window.location.search, fullUrl: window.location.href });
     
     // Spotify callback
-    if (hash.includes('spotify-callback')) {
-      // Extract query string from hash (format: #spotify-callback?code=...&state=...)
-      const hashParts = hash.split('?');
-      const queryString = hashParts.length > 1 ? hashParts[1] : '';
-      const params = new URLSearchParams(queryString);
-      const code = params.get('code');
-      const error = params.get('error');
+    if (hash.includes('spotify-callback') || hash.includes('code=') || searchParams.has('code')) {
+      console.log('Spotify callback detected!');
+      
+      // Try multiple ways to extract the code
+      let code: string | null = null;
+      let error: string | null = null;
+      
+      // Method 1: Query parameters in URL (not hash)
+      if (searchParams.has('code')) {
+        code = searchParams.get('code');
+        error = searchParams.get('error');
+        console.log('Found code in URL search params:', code);
+      }
+      
+      // Method 2: Hash with query string format (#spotify-callback?code=...)
+      if (!code && hash.includes('?')) {
+        const hashParts = hash.split('?');
+        const queryString = hashParts.length > 1 ? hashParts[1] : '';
+        const params = new URLSearchParams(queryString);
+        code = params.get('code');
+        error = params.get('error');
+        console.log('Found code in hash query string:', code);
+      }
+      
+      // Method 3: Hash with direct parameters (#spotify-callback&code=... or #code=...)
+      if (!code && hash.includes('code=')) {
+        // Extract everything after the first # and parse
+        const hashContent = hash.substring(1); // Remove leading #
+        const params = new URLSearchParams(hashContent);
+        code = params.get('code');
+        error = params.get('error');
+        console.log('Found code in hash direct:', code);
+      }
+      
+      // Method 4: Check if hash contains code= anywhere
+      if (!code) {
+        const hashMatch = hash.match(/[?&]code=([^&]+)/);
+        if (hashMatch) {
+          code = decodeURIComponent(hashMatch[1]);
+          console.log('Found code via regex:', code);
+        }
+        const errorMatch = hash.match(/[?&]error=([^&]+)/);
+        if (errorMatch) {
+          error = decodeURIComponent(errorMatch[1]);
+        }
+      }
+      
+      console.log('Final extracted values:', { code, error, hash });
       
       if (error) {
         alert(`Spotify authenticatie mislukt: ${error}`);
         window.location.hash = '';
+        window.location.search = '';
         return;
       }
       
       if (code) {
+        console.log('Processing Spotify callback with code:', code.substring(0, 20) + '...');
+        setIsProcessingCallback(true);
         handleSpotifyCallback(code)
           .then(async () => {
+            console.log('Spotify callback successful!');
+            setIsProcessingCallback(false);
             window.location.hash = '';
+            window.location.search = '';
             setStreamingSetupService(null);
             
             // Automatically create playlist after successful authentication
@@ -157,6 +209,7 @@ const App: React.FC = () => {
                 alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
                 window.open(playlistUrl, '_blank');
               } catch (error: any) {
+                console.error('Error creating playlist:', error);
                 alert(`Fout bij aanmaken playlist: ${error.message}`);
               } finally {
                 setIsCreatingPlaylist(false);
@@ -166,9 +219,14 @@ const App: React.FC = () => {
             }
           })
           .catch((err) => {
+            console.error('Spotify callback error:', err);
+            setIsProcessingCallback(false);
             alert(`Fout bij koppelen: ${err.message}`);
             window.location.hash = '';
+            window.location.search = '';
           });
+      } else {
+        console.warn('Spotify callback detected but no code found in hash:', hash);
       }
     }
     
@@ -270,6 +328,21 @@ const App: React.FC = () => {
           });
       }
     }
+    };
+    
+    // Process callback immediately on mount
+    processCallback();
+    
+    // Also listen for hash changes (in case user navigates back/forward)
+    const handleHashChange = () => {
+      processCallback();
+    };
+    
+    window.addEventListener('hashchange', handleHashChange);
+    
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
   }, [processedSongs, selectedYear]);
 
   // Initialize Data
@@ -921,6 +994,16 @@ const App: React.FC = () => {
           onClose={() => setStreamingSetupService(null)}
           onAuthenticated={handleStreamingSetupAuth}
         />
+      )}
+
+      {isProcessingCallback && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-8 max-w-md mx-4 text-center">
+            <div className="w-12 h-12 border-4 border-[#d00018] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-lg font-bold text-gray-900">Spotify account koppelen...</p>
+            <p className="text-sm text-gray-600 mt-2">Even geduld, we verwerken je autorisatie...</p>
+          </div>
+        </div>
       )}
 
       {isCreatingPlaylist && (
