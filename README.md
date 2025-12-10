@@ -23,10 +23,16 @@ De totale score van een nummer is de som van alle punten die het heeft behaald o
 - 📈 **Ranking Grafieken**: Visualiseer de historische noteringen van elk nummer
 - 🎵 **Audio Previews**: Luister naar 30-seconden previews via de iTunes API
 - 🖼️ **Album Covers**: Automatisch opgehaalde album artwork
-- 📰 **Nieuwsfeed**: Laatste nieuws over de Top 2000
+- 📰 **Nieuwsfeed**: Laatste nieuws over de Top 2000 met loading indicator
 - 💾 **Caching**: Lokale opslag voor snellere laadtijden (24 uur cache)
 - ♾️ **Infinite Scroll**: Laad automatisch meer nummers tijdens het scrollen
 - 📱 **Responsive Design**: Werkt perfect op desktop, tablet en mobiel
+- 📥 **Export Functionaliteit**: Download de lijst in verschillende formaten:
+  - **Excel**: Exporteer naar .xlsx bestand met volledige data
+  - **PDF**: Genereer een professionele PDF met de Top 2000 lijst
+  - **Spotify Playlist**: Exporteer als CSV met zoeklinks voor Spotify
+  - **Deezer Playlist**: Exporteer als CSV met zoeklinks voor Deezer
+  - **YouTube Music Playlist**: Exporteer als CSV voor import in YouTube Music
 
 ## 🚀 Technologie Stack
 
@@ -35,6 +41,8 @@ De totale score van een nummer is de som van alle punten die het heeft behaald o
 - **Vite** - Build tool en development server
 - **Tailwind CSS** - Utility-first CSS framework
 - **Recharts** - React chart library voor visualisaties
+- **xlsx** - Excel bestandsgeneratie
+- **jspdf** - PDF generatie
 
 ## 📁 Project Structuur
 
@@ -47,6 +55,7 @@ top-2000-allertijden/
 │   ├── SongCard.tsx
 │   └── SongChart.tsx
 ├── services/            # API services en data logica
+│   ├── exportService.ts
 │   ├── geminiService.ts
 │   ├── itunesService.ts
 │   ├── lyricsService.ts
@@ -100,6 +109,30 @@ De applicatie gebruikt localStorage om data 24 uur lang te cachen. Dit zorgt voo
 - Offline beschikbaarheid van eerder opgehaalde data
 
 Cache wordt automatisch ververst na 24 uur of kan handmatig worden gewist via de browser developer tools.
+
+## 📥 Export Functionaliteit
+
+De applicatie biedt uitgebreide export mogelijkheden om de Top 2000 lijst te downloaden en te gebruiken in andere applicaties:
+
+### Excel Export
+Exporteer de volledige lijst naar een Excel bestand (.xlsx) met alle relevante informatie:
+- Rank (Allertijden of per jaar)
+- Artiest
+- Titel
+- Jaar
+- Score
+
+### PDF Export
+Genereer een professioneel PDF document met de Top 2000 lijst in landscape formaat, geschikt voor printen of delen.
+
+### Playlist Export
+Exporteer de lijst als afspeellijst voor verschillende muziekdiensten:
+
+- **Spotify**: CSV bestand met zoeklinks naar elk nummer op Spotify
+- **Deezer**: CSV bestand met zoeklinks naar elk nummer op Deezer  
+- **YouTube Music**: CSV bestand dat direct geïmporteerd kan worden in YouTube Music
+
+De export functies werken met de actieve filter (jaar selectie en zoekopdracht), zodat je alleen de nummers exporteert die je wilt.
 
 ## 🌐 Browser Ondersteuning
 
