@@ -10,6 +10,34 @@ interface StreamingConfig {
   expiresAt?: number;
 }
 
+// Helper to get consistent redirect URI
+const getRedirectUri = (callbackHash: string): string => {
+  // Use base path from vite config or derive from current pathname
+  let basePath = import.meta.env.BASE_URL;
+  
+  // If BASE_URL is not set, try to derive from pathname
+  if (!basePath || basePath === '/') {
+    // Get the pathname and remove filename if present (e.g., index.html)
+    const pathname = window.location.pathname;
+    // Remove trailing filename and ensure it ends with /
+    basePath = pathname.replace(/\/[^/]+\.(html|htm)$/, '/');
+    // If pathname is just /, use /
+    if (basePath === '' || basePath === '/') {
+      basePath = '/';
+    } else if (!basePath.endsWith('/')) {
+      basePath = `${basePath}/`;
+    }
+  } else if (!basePath.endsWith('/')) {
+    basePath = `${basePath}/`;
+  }
+  
+  // Remove trailing slash from origin to avoid double slashes
+  const origin = window.location.origin.replace(/\/$/, '');
+  // Ensure callbackHash starts with # (it should already, but be safe)
+  const hash = callbackHash.startsWith('#') ? callbackHash : `#${callbackHash}`;
+  return `${origin}${basePath}${hash}`;
+};
+
 // PKCE helpers
 const generateCodeVerifier = (): string => {
   const array = new Uint32Array(56 / 2);
@@ -51,7 +79,7 @@ export const initiateSpotifyAuth = async (): Promise<void> => {
   // Store verifier for later
   sessionStorage.setItem('spotify_code_verifier', codeVerifier);
 
-  const redirectUri = `${window.location.origin}${window.location.pathname}#spotify-callback`;
+  const redirectUri = getRedirectUri('#spotify-callback');
   const scopes = 'playlist-modify-public playlist-modify-private';
   
   const authUrl = new URL('https://accounts.spotify.com/authorize');
@@ -68,44 +96,80 @@ export const initiateSpotifyAuth = async (): Promise<void> => {
 export const handleSpotifyCallback = async (code: string): Promise<void> => {
   const config = getSpotifyConfig();
   if (!config?.clientId) {
-    throw new Error('Spotify Client ID niet gevonden');
+    throw new Error('Spotify Client ID niet gevonden. Configureer eerst je Client ID in de instellingen.');
   }
 
   const codeVerifier = sessionStorage.getItem('spotify_code_verifier');
   if (!codeVerifier) {
-    throw new Error('Code verifier niet gevonden');
+    throw new Error('Code verifier niet gevonden. Start de autorisatie opnieuw vanaf het begin.');
   }
 
-  const redirectUri = `${window.location.origin}${window.location.pathname}#spotify-callback`;
+  const redirectUri = getRedirectUri('#spotify-callback');
 
-  // Exchange code for token (client-side, no backend needed with PKCE)
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: redirectUri,
-      client_id: config.clientId,
-      code_verifier: codeVerifier,
-    }),
-  });
+  try {
+    // Exchange code for token (client-side, no backend needed with PKCE)
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+        client_id: config.clientId,
+        code_verifier: codeVerifier,
+      }),
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Spotify token exchange failed: ${error}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = 'Spotify token exchange mislukt';
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error_description) {
+          errorMessage = `Spotify fout: ${errorData.error_description}`;
+        } else if (errorData.error) {
+          errorMessage = `Spotify fout: ${errorData.error}`;
+        }
+      } catch {
+        // If JSON parsing fails, use the raw text
+        errorMessage = `Spotify fout: ${errorText}`;
+      }
+      
+      // Check for common errors
+      if (errorText.includes('invalid_grant') || errorText.includes('expired')) {
+        errorMessage += ' De autorisatiecode is verlopen. Probeer het opnieuw.';
+      } else if (errorText.includes('invalid_client')) {
+        errorMessage += ' Client ID is ongeldig. Controleer je Client ID in de instellingen.';
+      } else if (errorText.includes('redirect_uri_mismatch')) {
+        errorMessage += ` Redirect URI komt niet overeen. Zorg dat deze exact overeenkomt: ${redirectUri}`;
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    
+    if (!data.access_token) {
+      throw new Error('Geen access token ontvangen van Spotify');
+    }
+    
+    saveSpotifyConfig({
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresAt: Date.now() + (data.expires_in * 1000),
+    });
+
+    sessionStorage.removeItem('spotify_code_verifier');
+  } catch (error: any) {
+    // Re-throw with more context if it's not already our custom error
+    if (error.message && error.message.includes('Spotify')) {
+      throw error;
+    }
+    throw new Error(`Fout bij verbinden met Spotify: ${error.message || 'Onbekende fout'}`);
   }
-
-  const data = await response.json();
-  saveSpotifyConfig({
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: Date.now() + (data.expires_in * 1000),
-  });
-
-  sessionStorage.removeItem('spotify_code_verifier');
 };
 
 const refreshSpotifyToken = async (): Promise<string> => {
@@ -260,7 +324,7 @@ export const initiateDeezerAuth = (): void => {
     throw new Error('Deezer App ID niet geconfigureerd. Configureer eerst je App ID.');
   }
 
-  const redirectUri = `${window.location.origin}${window.location.pathname}#deezer-callback`;
+  const redirectUri = getRedirectUri('#deezer-callback');
   const scopes = 'manage_library,delete_library';
   
   const authUrl = new URL('https://connect.deezer.com/oauth/auth.php');
@@ -390,7 +454,7 @@ export const initiateYouTubeAuth = async (): Promise<void> => {
   
   sessionStorage.setItem('youtube_code_verifier', codeVerifier);
 
-  const redirectUri = `${window.location.origin}${window.location.pathname}#youtube-callback`;
+  const redirectUri = getRedirectUri('#youtube-callback');
   const scopes = 'https://www.googleapis.com/auth/youtube.force-ssl';
   
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -417,7 +481,7 @@ export const handleYouTubeCallback = async (code: string): Promise<void> => {
     throw new Error('Code verifier niet gevonden');
   }
 
-  const redirectUri = `${window.location.origin}${window.location.pathname}#youtube-callback`;
+  const redirectUri = getRedirectUri('#youtube-callback');
 
   // Exchange code for token
   const response = await fetch('https://oauth2.googleapis.com/token', {
