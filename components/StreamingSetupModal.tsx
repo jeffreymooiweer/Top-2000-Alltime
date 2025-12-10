@@ -20,9 +20,30 @@ interface StreamingSetupModalProps {
   onAuthenticated: () => void;
 }
 
+// Helper to get consistent redirect URI (same as in streamingService)
+const getRedirectUri = (callbackHash: string): string => {
+  let basePath = import.meta.env.BASE_URL;
+  
+  if (!basePath || basePath === '/') {
+    const pathname = window.location.pathname;
+    basePath = pathname.replace(/\/[^/]+\.(html|htm)$/, '/');
+    if (basePath === '' || basePath === '/') {
+      basePath = '/';
+    } else if (!basePath.endsWith('/')) {
+      basePath = `${basePath}/`;
+    }
+  } else if (!basePath.endsWith('/')) {
+    basePath = `${basePath}/`;
+  }
+  
+  const origin = window.location.origin.replace(/\/$/, '');
+  const hash = callbackHash.startsWith('#') ? callbackHash : `#${callbackHash}`;
+  return `${origin}${basePath}${hash}`;
+};
+
 const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service, onClose, onAuthenticated }) => {
   const [clientId, setClientId] = useState('');
-  const [redirectUrl] = useState(`${window.location.origin}${window.location.pathname}#${service}-callback`);
+  const [redirectUrl] = useState(getRedirectUri(`#${service}-callback`));
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -85,7 +106,7 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
         return {
           name: 'Spotify',
           developerUrl: 'https://developer.spotify.com/dashboard',
-          redirectUrl: `${window.location.origin}${window.location.pathname}#spotify-callback`,
+          redirectUrl: getRedirectUri('#spotify-callback'),
           instructions: [
             'Ga naar https://developer.spotify.com/dashboard',
             'Log in met je Spotify account',
@@ -98,7 +119,7 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
         return {
           name: 'Deezer',
           developerUrl: 'https://developers.deezer.com/myapps',
-          redirectUrl: `${window.location.origin}${window.location.pathname}#deezer-callback`,
+          redirectUrl: getRedirectUri('#deezer-callback'),
           instructions: [
             'Ga naar https://developers.deezer.com/myapps',
             'Log in met je Deezer account',
@@ -111,7 +132,7 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
         return {
           name: 'YouTube Music',
           developerUrl: 'https://console.cloud.google.com/apis/credentials',
-          redirectUrl: `${window.location.origin}${window.location.pathname}#youtube-callback`,
+          redirectUrl: getRedirectUri('#youtube-callback'),
           instructions: [
             'Ga naar https://console.cloud.google.com/',
             'Maak een nieuw project of selecteer een bestaand project',

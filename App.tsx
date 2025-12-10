@@ -125,31 +125,62 @@ const App: React.FC = () => {
   // Handle OAuth Callbacks
   useEffect(() => {
     const hash = window.location.hash;
+    const searchParams = new URLSearchParams(window.location.search);
     
     // Spotify callback
-    if (hash.includes('spotify-callback')) {
-      // Extract query string from hash (format: #spotify-callback?code=...&state=...)
-      const hashParts = hash.split('?');
-      const queryString = hashParts.length > 1 ? hashParts[1] : '';
-      const params = new URLSearchParams(queryString);
-      const code = params.get('code');
-      const error = params.get('error');
+    if (hash.includes('spotify-callback') || searchParams.has('code')) {
+      // Try to extract code from hash first, then from query string
+      let code: string | null = null;
+      let error: string | null = null;
+      
+      // Check hash for callback
+      if (hash.includes('spotify-callback')) {
+        // Format could be: #spotify-callback?code=... or #spotify-callback&code=...
+        const hashWithoutHash = hash.substring(1); // Remove #
+        const hashParts = hashWithoutHash.split('?');
+        if (hashParts.length > 1) {
+          const queryString = hashParts[1];
+          const params = new URLSearchParams(queryString);
+          code = params.get('code');
+          error = params.get('error');
+        } else {
+          // Try splitting by &
+          const hashParts2 = hashWithoutHash.split('&');
+          for (const part of hashParts2) {
+            if (part.startsWith('code=')) {
+              code = part.substring(5);
+            } else if (part.startsWith('error=')) {
+              error = part.substring(6);
+            }
+          }
+        }
+      }
+      
+      // If not found in hash, check query string
+      if (!code && !error) {
+        code = searchParams.get('code');
+        error = searchParams.get('error');
+      }
       
       if (error) {
         alert(`Spotify authenticatie mislukt: ${error}`);
         window.location.hash = '';
+        window.history.replaceState(null, '', window.location.pathname);
         return;
       }
       
       if (code) {
+        // Show loading indicator
+        setIsCreatingPlaylist(true);
+        
         handleSpotifyCallback(code)
           .then(async () => {
             window.location.hash = '';
+            window.history.replaceState(null, '', window.location.pathname);
             setStreamingSetupService(null);
             
             // Automatically create playlist after successful authentication
             if (processedSongs.length > 0) {
-              setIsCreatingPlaylist(true);
               try {
                 const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
                 const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
@@ -162,13 +193,24 @@ const App: React.FC = () => {
                 setIsCreatingPlaylist(false);
               }
             } else {
+              setIsCreatingPlaylist(false);
               alert('Spotify account succesvol gekoppeld! Je kunt nu een playlist aanmaken via het download menu.');
             }
           })
           .catch((err) => {
-            alert(`Fout bij koppelen: ${err.message}`);
+            setIsCreatingPlaylist(false);
+            console.error('Spotify callback error:', err);
+            alert(`Fout bij koppelen Spotify account: ${err.message || 'Onbekende fout. Controleer de console voor meer details.'}`);
             window.location.hash = '';
+            window.history.replaceState(null, '', window.location.pathname);
           });
+      } else if (hash.includes('spotify-callback')) {
+        // Hash contains spotify-callback but no code - might be an error
+        console.warn('Spotify callback detected but no code found in URL:', hash);
+        setIsCreatingPlaylist(false);
+        alert('Geen autorisatiecode ontvangen van Spotify. Probeer het opnieuw.');
+        window.location.hash = '';
+        window.history.replaceState(null, '', window.location.pathname);
       }
     }
     
