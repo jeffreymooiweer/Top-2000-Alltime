@@ -76,6 +76,7 @@ const App: React.FC = () => {
   const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
   const observerTarget = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const spotifyCallbackProcessed = useRef(false);
   
   // Debounce search query
   useEffect(() => {
@@ -128,7 +129,10 @@ const App: React.FC = () => {
     const searchParams = new URLSearchParams(window.location.search);
     
     // Spotify callback
-    if (hash.includes('spotify-callback') || searchParams.has('code')) {
+    if ((hash.includes('spotify-callback') || searchParams.has('code')) && !spotifyCallbackProcessed.current) {
+      // Mark as processed immediately to prevent double processing
+      spotifyCallbackProcessed.current = true;
+      
       // Try to extract code from hash first, then from query string
       let code: string | null = null;
       let error: string | null = null;
@@ -166,6 +170,7 @@ const App: React.FC = () => {
         alert(`Spotify authenticatie mislukt: ${error}`);
         window.location.hash = '';
         window.history.replaceState(null, '', window.location.pathname);
+        spotifyCallbackProcessed.current = false; // Reset on error
         return;
       }
       
@@ -203,6 +208,7 @@ const App: React.FC = () => {
             alert(`Fout bij koppelen Spotify account: ${err.message || 'Onbekende fout. Controleer de console voor meer details.'}`);
             window.location.hash = '';
             window.history.replaceState(null, '', window.location.pathname);
+            spotifyCallbackProcessed.current = false; // Reset on error so user can retry
           });
       } else if (hash.includes('spotify-callback')) {
         // Hash contains spotify-callback but no code - might be an error
@@ -211,6 +217,7 @@ const App: React.FC = () => {
         alert('Geen autorisatiecode ontvangen van Spotify. Probeer het opnieuw.');
         window.location.hash = '';
         window.history.replaceState(null, '', window.location.pathname);
+        spotifyCallbackProcessed.current = false; // Reset on error
       }
     }
     

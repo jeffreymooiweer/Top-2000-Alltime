@@ -40,9 +40,18 @@ const getRedirectUri = (callbackHash: string): string => {
 
 // PKCE helpers
 const generateCodeVerifier = (): string => {
-  const array = new Uint32Array(56 / 2);
+  // Generate a random code verifier (43-128 characters, URL-safe)
+  // Using base64url encoding for URL-safe characters
+  const array = new Uint8Array(32); // 32 bytes = 43 characters when base64url encoded
   crypto.getRandomValues(array);
-  return Array.from(array, dec => ('0' + dec.toString(16)).substring(-2)).join('');
+  
+  // Convert to base64url (URL-safe base64)
+  const base64 = btoa(String.fromCharCode(...array))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+  
+  return base64;
 };
 
 const generateCodeChallenge = async (verifier: string): Promise<string> => {
