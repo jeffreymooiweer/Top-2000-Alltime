@@ -23,7 +23,7 @@ const NewsFeed: React.FC = () => {
       <div className="flex items-center gap-3 mb-4 px-4 md:px-0">
         <div className="h-8 w-1 bg-[#d00018]"></div>
         <h3 className="text-2xl font-bold brand-font uppercase text-gray-800">
-          NPO Radio 2 <span className="text-[#d00018]">Nieuws</span>
+          NPO Radio 2 <span className="text-[#d00018]">Nieuws</span>  <span className="italic text-gray-800"> #TOP2000</span>
         </h3>
       </div>
       
