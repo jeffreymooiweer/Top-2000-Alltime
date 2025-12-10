@@ -451,26 +451,26 @@ const App: React.FC = () => {
                                      Download als
                                  </div>
                                  <button onClick={() => handleDownload('Excel')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                     <div className="w-6 h-6 bg-green-700 text-white flex items-center justify-center rounded text-xs font-bold">X</div>
+                                     <img src="/Image/Xls.png" alt="Excel" className="w-6 h-6 object-contain" />
                                      <span className="font-medium">Excel</span>
                                  </button>
                                  <button onClick={() => handleDownload('PDF')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <div className="w-6 h-6 bg-red-700 text-white flex items-center justify-center rounded text-xs font-bold">PDF</div>
+                                     <img src="/Image/pdf.png" alt="PDF" className="w-6 h-6 object-contain" />
                                      <span className="font-medium">PDF</span>
                                  </button>
                                  <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-1">
                                      Afspeellijst
                                  </div>
                                  <button onClick={() => handleDownload('Spotify')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                     <div className="w-6 h-6 bg-[#1DB954] text-white flex items-center justify-center rounded text-xs font-bold">♪</div>
+                                     <img src="/Image/spotify.png" alt="Spotify" className="w-6 h-6 object-contain" />
                                      <span className="font-medium">Spotify</span>
                                  </button>
                                  <button onClick={() => handleDownload('Deezer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <div className="w-6 h-6 bg-[#FEAA2D] text-white flex items-center justify-center rounded text-xs font-bold">D</div>
+                                     <img src="/Image/deezer.png" alt="Deezer" className="w-6 h-6 object-contain" />
                                      <span className="font-medium">Deezer</span>
                                  </button>
                                  <button onClick={() => handleDownload('YouTube Music')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <div className="w-6 h-6 bg-[#FF0000] text-white flex items-center justify-center rounded text-xs font-bold">YT</div>
+                                     <img src="/Image/play.png" alt="YouTube Music" className="w-6 h-6 object-contain" />
                                      <span className="font-medium">YouTube Music</span>
                                  </button>
                              </div>
