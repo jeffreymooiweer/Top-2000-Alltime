@@ -146,11 +146,15 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
           instructions: [
             'Ga naar https://console.cloud.google.com/',
             'Maak een nieuw project of selecteer een bestaand project',
+            'Ga naar "APIs & Services" > "Library" en zoek "YouTube Data API v3"',
+            'Klik op "Enable" om de API in te schakelen',
+            'Ga naar "APIs & Services" > "OAuth consent screen"',
+            'Configureer de OAuth consent screen (App naam, gebruikersondersteuning email)',
+            'Voeg jezelf toe als test gebruiker als de app in "Testing" mode staat',
             'Ga naar "APIs & Services" > "Credentials"',
             'Klik op "Create Credentials" > "OAuth client ID"',
             'Selecteer "Web application"',
             'Voeg de Redirect URI toe (zie hieronder) - ZONDER hashtag',
-            'Zorg dat YouTube Data API v3 is ingeschakeld',
             'Kopieer je Client ID en plak deze hieronder',
           ],
         };
@@ -251,12 +255,33 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
               <p className="text-xs text-yellow-700 mt-2">
                 Kopieer deze URL en voeg deze toe aan je {service === 'deezer' ? 'Application' : 'OAuth App'} settings.
                 {service === 'youtube' && (
-                  <span className="block mt-1 font-bold text-yellow-900">
-                    ⚠️ Belangrijk: Gebruik deze URL ZONDER hashtag (#) in Google Console!
-                  </span>
+                  <>
+                    <span className="block mt-1 font-bold text-yellow-900">
+                      ⚠️ Belangrijk: Gebruik deze URL ZONDER hashtag (#) in Google Console!
+                    </span>
+                  </>
                 )}
               </p>
             </div>
+
+            {/* OAuth Consent Screen Warning for YouTube */}
+            {service === 'youtube' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800 font-bold mb-2">⚠️ Belangrijk: OAuth Consent Screen</p>
+                <p className="text-xs text-blue-700 mb-2">
+                  Voordat je kunt verbinden, moet je de OAuth consent screen configureren:
+                </p>
+                <ol className="text-xs text-blue-700 list-decimal list-inside space-y-1 mb-2">
+                  <li>Ga naar <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener noreferrer" className="text-blue-900 underline font-bold">OAuth consent screen</a></li>
+                  <li>Vul minimaal de App naam en gebruikersondersteuning email in</li>
+                  <li>Als de app in "Testing" mode staat, voeg jezelf toe als test gebruiker</li>
+                  <li>Zorg dat YouTube Data API v3 is ingeschakeld in de API Library</li>
+                </ol>
+                <p className="text-xs text-blue-700 font-bold">
+                  Zonder deze configuratie krijg je een "access_denied" fout!
+                </p>
+              </div>
+            )}
 
             {/* Input Fields */}
             <div className="space-y-4">

@@ -110,16 +110,24 @@ Om de streamingdienst integratie te gebruiken, moet je eerst een OAuth app aanma
 #### YouTube Music Setup
 1. Ga naar [Google Cloud Console](https://console.cloud.google.com/)
 2. Maak een nieuw project aan of selecteer een bestaand project
-3. Schakel YouTube Data API v3 in
-4. Maak OAuth 2.0 credentials aan (Web application)
-5. Voeg deze redirect URI toe: `https://jouw-domein.nl/path` (ZONDER hashtag!)
-6. Kopieer je Client ID
-7. Voer de Client ID in via de setup modal in de applicatie
+3. Ga naar "APIs & Services" > "Library" en zoek "YouTube Data API v3"
+4. Klik op "Enable" om de API in te schakelen
+5. Ga naar "APIs & Services" > "OAuth consent screen"
+6. Configureer de OAuth consent screen:
+   - Vul minimaal de App naam en gebruikersondersteuning email in
+   - Als de app in "Testing" mode staat, voeg jezelf toe als test gebruiker
+7. Ga naar "APIs & Services" > "Credentials"
+8. Klik op "Create Credentials" > "OAuth client ID"
+9. Selecteer "Web application"
+10. Voeg deze redirect URI toe: `https://jouw-domein.nl/path` (ZONDER hashtag!)
+11. Kopieer je Client ID
+12. Voer de Client ID in via de setup modal in de applicatie
 
 **Belangrijk**: 
 - Google accepteert GEEN hashtag (#) in redirect URIs
 - Gebruik de exacte URL die in de setup modal wordt getoond (zonder hashtag)
 - De callback wordt automatisch afgehandeld via query parameters
+- **Zonder OAuth consent screen configuratie krijg je een "access_denied" fout!**
 
 ## 📊 Data Bronnen
 

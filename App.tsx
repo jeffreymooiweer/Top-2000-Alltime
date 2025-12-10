@@ -286,7 +286,19 @@ const App: React.FC = () => {
     if (youtubeCode || youtubeError || hash.includes('youtube-callback')) {
       // For Google OAuth, code comes via query parameters
       if (youtubeError) {
-        alert(`YouTube authenticatie mislukt: ${youtubeError}`);
+        let errorMessage = `YouTube authenticatie mislukt: ${youtubeError}`;
+        
+        // Provide helpful error messages for common issues
+        if (youtubeError === 'access_denied') {
+          errorMessage += '\n\nMogelijke oorzaken:\n';
+          errorMessage += '1. OAuth consent screen niet geconfigureerd\n';
+          errorMessage += '2. App staat in "Testing" mode - voeg jezelf toe als test gebruiker\n';
+          errorMessage += '3. YouTube Data API v3 niet ingeschakeld\n';
+          errorMessage += '4. App niet gepubliceerd (voor productie gebruik)\n\n';
+          errorMessage += 'Controleer je Google Cloud Console instellingen.';
+        }
+        
+        alert(errorMessage);
         // Clean up URL
         window.history.replaceState(null, '', window.location.pathname);
         return;

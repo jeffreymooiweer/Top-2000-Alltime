@@ -714,8 +714,21 @@ export const handleYouTubeCallback = async (code: string): Promise<void> => {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`YouTube token exchange failed: ${error}`);
+    const errorText = await response.text();
+    let errorMessage = 'YouTube token exchange mislukt';
+    
+    try {
+      const errorData = JSON.parse(errorText);
+      if (errorData.error_description) {
+        errorMessage = `YouTube fout: ${errorData.error_description}`;
+      } else if (errorData.error) {
+        errorMessage = `YouTube fout: ${errorData.error}`;
+      }
+    } catch {
+      errorMessage = `YouTube fout: ${errorText}`;
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
