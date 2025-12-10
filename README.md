@@ -32,39 +32,6 @@ De totale score van een nummer is de som van alle punten die het heeft behaald o
 - **Tailwind CSS** - Utility-first CSS framework
 - **Recharts** - React chart library voor visualisaties
 
-## 📦 Installatie
-
-### Vereisten
-
-- Node.js (versie 18 of hoger)
-- npm of yarn
-
-### Stappen
-
-1. Clone de repository:
-```bash
-git clone <repository-url>
-cd top-2000-allertijden
-```
-
-2. Installeer dependencies:
-```bash
-npm install
-```
-
-3. Start de development server:
-```bash
-npm run dev
-```
-
-4. Open je browser en ga naar `http://localhost:3000`
-
-## 🛠️ Scripts
-
-- `npm run dev` - Start de development server
-- `npm run build` - Build de applicatie voor productie
-- `npm run preview` - Preview de productie build lokaal
-
 ## 📁 Project Structuur
 
 ```
@@ -141,14 +108,6 @@ De applicatie werkt in alle moderne browsers:
 ## 📝 Licentie
 
 Dit project is gemaakt voor educatieve doeleinden en gebruikt data van Wikipedia en de iTunes API.
-
-## 🤝 Bijdragen
-
-Bijdragen zijn welkom! Voel je vrij om een issue aan te maken of een pull request te sturen.
-
-## 📧 Contact
-
-Voor vragen of suggesties, open een issue op GitHub.
 
 ---
 
