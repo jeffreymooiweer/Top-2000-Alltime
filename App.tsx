@@ -1,12 +1,14 @@
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
 import { SongData } from './types';
 import { scrapeWikipediaData } from './services/wikipediaService'; 
 import { prefetchMetadata } from './services/itunesService';
 import { exportToExcel, exportToPDF, exportToSpotify, exportToDeezer, exportToYouTubeMusic } from './services/exportService';
-import Modal from './components/Modal';
 import SongCard from './components/SongCard';
 import NewsFeed from './components/NewsFeed';
+
+// Lazy load Modal component (large component with chart and analysis)
+const Modal = lazy(() => import('./components/Modal'));
 
 // Calculation Logic:
 // Rank 1 = 2000 points. Rank 2000 = 1 point.
@@ -41,6 +43,7 @@ const App: React.FC = () => {
   const [loadingStatus, setLoadingStatus] = useState("Verbinding maken met Wikipedia...");
   const [selectedSong, setSelectedSong] = useState<SongData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // Header Menus State
@@ -196,9 +199,9 @@ const App: React.FC = () => {
   const processedSongs = useMemo(() => {
     let result = [...songs];
 
-    // 1. Search Filter
-    if (searchQuery) {
-        const lowerQuery = searchQuery.toLowerCase();
+    // 1. Search Filter (using debounced query)
+    if (debouncedSearchQuery) {
+        const lowerQuery = debouncedSearchQuery.toLowerCase();
         result = result.filter(s => 
             s.title.toLowerCase().includes(lowerQuery) || 
             s.artist.toLowerCase().includes(lowerQuery)
@@ -218,40 +221,51 @@ const App: React.FC = () => {
     }
 
     return result;
-  }, [songs, searchQuery, selectedYear]);
+  }, [songs, debouncedSearchQuery, selectedYear]);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Reset infinite scroll when filters change
   useEffect(() => {
     setVisibleCount(BATCH_SIZE);
-    if (searchQuery) {
+    if (debouncedSearchQuery) {
         // Only scroll if we are deep down, otherwise it feels jumpy
         if (window.scrollY > 500) {
             window.scrollTo({ top: 400, behavior: 'smooth' });
         }
     }
-  }, [searchQuery, selectedYear]);
+  }, [debouncedSearchQuery, selectedYear]);
 
   // Infinite Scroll Observer
   useEffect(() => {
+    if (loading || processedSongs.length === 0) return;
+
+    const target = observerTarget.current;
+    if (!target) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0].isIntersecting && visibleCount < processedSongs.length) {
           setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, processedSongs.length));
         }
       },
       { threshold: 0.1, rootMargin: '400px' } // Increased rootMargin for earlier loading
     );
 
-    if (observerTarget.current && !loading && processedSongs.length > 0) {
-      observer.observe(observerTarget.current);
-    }
+    observer.observe(target);
 
     return () => {
-      if (observerTarget.current) observer.unobserve(observerTarget.current);
+      observer.disconnect();
     };
-  }, [loading, processedSongs.length]);
+  }, [loading, processedSongs.length, visibleCount]);
 
-  const visibleSongs = processedSongs.slice(0, visibleCount);
+  const visibleSongs = useMemo(() => processedSongs.slice(0, visibleCount), [processedSongs, visibleCount]);
 
   // Derived state for Modal (Other songs by artist)
   const otherSongsBySelectedArtist = useMemo(() => {
@@ -260,6 +274,14 @@ const App: React.FC = () => {
         .filter(s => s.artist === selectedSong.artist && s.id !== selectedSong.id)
         .sort((a,b) => (a.allTimeRank || 9999) - (b.allTimeRank || 9999));
   }, [selectedSong, songs]);
+
+  const handleSelectSong = useCallback((song: SongData) => {
+    setSelectedSong(song);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedSong(null);
+  }, []);
 
   // Derived state for Navigation
   const selectedSongIndex = useMemo(() => {
@@ -270,17 +292,17 @@ const App: React.FC = () => {
   const hasNext = selectedSongIndex >= 0 && selectedSongIndex < processedSongs.length - 1;
   const hasPrevious = selectedSongIndex > 0;
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (hasNext) {
       setSelectedSong(processedSongs[selectedSongIndex + 1]);
     }
-  };
+  }, [hasNext, processedSongs, selectedSongIndex]);
 
-  const handlePrevious = () => {
+  const handlePrevious = useCallback(() => {
     if (hasPrevious) {
       setSelectedSong(processedSongs[selectedSongIndex - 1]);
     }
-  };
+  }, [hasPrevious, processedSongs, selectedSongIndex]);
 
   const handleNavbarSearchClick = () => {
       if (searchInputRef.current) {
@@ -289,10 +311,10 @@ const App: React.FC = () => {
       }
   };
 
-  const toggleShare = () => { setIsShareOpen(!isShareOpen); setIsDownloadOpen(false); };
-  const toggleDownload = () => { setIsDownloadOpen(!isDownloadOpen); setIsShareOpen(false); };
+  const toggleShare = useCallback(() => { setIsShareOpen(prev => !prev); setIsDownloadOpen(false); }, []);
+  const toggleDownload = useCallback(() => { setIsDownloadOpen(prev => !prev); setIsShareOpen(false); }, []);
 
-  const handleDownload = (type: string) => {
+  const handleDownload = useCallback((type: string) => {
     try {
       switch (type) {
         case 'Excel':
@@ -318,7 +340,7 @@ const App: React.FC = () => {
       console.error(`Error exporting ${type}:`, error);
       alert(`Er is een fout opgetreden bij het exporteren naar ${type}. Probeer het opnieuw.`);
     }
-  };
+  }, [processedSongs, selectedYear]);
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] font-sans">
@@ -352,6 +374,8 @@ const App: React.FC = () => {
                     src="https://assets-start.npo.nl/resources/2025/11/20/41ed2cbc-8b8b-4b71-b6ec-9af8817f2a08.png" 
                     alt="Top 2000 Logo" 
                     className="h-16 w-auto object-contain py-1"
+                    loading="eager"
+                    fetchPriority="high"
                    />
                 </div>
             </div>
@@ -364,7 +388,7 @@ const App: React.FC = () => {
 
       <div className="max-w-6xl mx-auto md:px-4">
       
-        {!searchQuery && (
+        {!debouncedSearchQuery && (
             <div 
                 className="relative flex flex-col justify-center min-h-[400px] p-10 overflow-hidden"
                 style={{
@@ -383,6 +407,8 @@ const App: React.FC = () => {
                             src="https://upload.wikimedia.org/wikipedia/commons/a/a4/NPO_Radio_2_Top_2000_logo.png" 
                             alt="NPO Radio 2 Top 2000"
                             className="max-w-[240px] md:max-w-[350px] mb-6 drop-shadow-2xl"
+                            loading="eager"
+                            fetchPriority="high"
                         />
 
                          <h2 className="text-2xl md:text-4xl font-bold text-white mb-8 brand-font leading-tight drop-shadow-md">
@@ -396,10 +422,10 @@ const App: React.FC = () => {
         )}
 
         {/* RSS Feed Section */}
-        {!searchQuery && <NewsFeed />}
+        {!debouncedSearchQuery && <NewsFeed />}
 
         {/* Main List Container */}
-        <div className={`bg-gradient-to-b from-[#9a1a1a] to-[#2b0505] min-h-screen ${searchQuery ? 'rounded-t-xl' : 'rounded-t-none'} overflow-visible shadow-2xl relative pb-10`}>
+        <div className={`bg-gradient-to-b from-[#9a1a1a] to-[#2b0505] min-h-screen ${debouncedSearchQuery ? 'rounded-t-xl' : 'rounded-t-none'} overflow-visible shadow-2xl relative pb-10`}>
             
             {/* Header / Controls Section */}
             <div className="px-4 pt-8 pb-4 space-y-4">
@@ -570,13 +596,13 @@ const App: React.FC = () => {
                                         song={song} 
                                         rank={displayRank} 
                                         previousRank={previousRank}
-                                        onSelect={(s) => setSelectedSong(s)} 
+                                        onSelect={handleSelectSong} 
                                     />
                                 );
                             })
                         ) : (
                             <div className="text-center py-10 text-white/60">
-                                {searchQuery 
+                                {debouncedSearchQuery 
                                     ? 'Geen nummers gevonden met deze zoekterm.' 
                                     : selectedYear !== 'all-time' 
                                         ? `Geen data beschikbaar voor het jaar ${selectedYear}.` 
@@ -606,16 +632,22 @@ const App: React.FC = () => {
       </footer>
 
       {selectedSong && (
-        <Modal 
-            song={selectedSong} 
-            onClose={() => setSelectedSong(null)} 
-            otherSongsByArtist={otherSongsBySelectedArtist}
-            onSelectSong={(s) => setSelectedSong(s)}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
-            hasNext={hasNext}
-            hasPrevious={hasPrevious}
-        />
+        <Suspense fallback={
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        }>
+          <Modal 
+              song={selectedSong} 
+              onClose={handleCloseModal} 
+              otherSongsByArtist={otherSongsBySelectedArtist}
+              onSelectSong={handleSelectSong}
+              onNext={handleNext}
+              onPrevious={handlePrevious}
+              hasNext={hasNext}
+              hasPrevious={hasPrevious}
+          />
+        </Suspense>
       )}
 
     </div>

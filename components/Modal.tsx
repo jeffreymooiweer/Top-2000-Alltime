@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo, useCallback } from 'react';
 import { SongData } from '../types';
 import SongChart from './SongChart';
 import AudioPlayer from './AudioPlayer';
@@ -20,7 +20,7 @@ interface ModalProps {
 type Tab = 'overview' | 'lyrics';
 
 // Sub-component for the "More from artist" list items
-const RelatedSongRow: React.FC<{ song: SongData; onClick: () => void }> = ({ song, onClick }) => {
+const RelatedSongRow: React.FC<{ song: SongData; onClick: () => void }> = memo(({ song, onClick }) => {
   const [cover, setCover] = useState<string | null | undefined>(song.coverUrl);
   const [preview, setPreview] = useState<string | null | undefined>(song.previewUrl);
 
@@ -45,7 +45,7 @@ const RelatedSongRow: React.FC<{ song: SongData; onClick: () => void }> = ({ son
     >
       <div className="relative w-12 h-12 bg-gray-200 rounded overflow-hidden shrink-0 group/image">
         {cover ? (
-          <img src={cover} alt={song.title} className="w-full h-full object-cover" />
+          <img src={cover} alt={song.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-500 font-bold text-xs">
             #
@@ -67,9 +67,11 @@ const RelatedSongRow: React.FC<{ song: SongData; onClick: () => void }> = ({ son
       </div>
     </div>
   );
-};
+});
 
-const Modal: React.FC<ModalProps> = ({
+RelatedSongRow.displayName = 'RelatedSongRow';
+
+const Modal: React.FC<ModalProps> = memo(({
   song,
   onClose,
   otherSongsByArtist,
@@ -111,6 +113,10 @@ const Modal: React.FC<ModalProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [hasNext, hasPrevious, onNext, onPrevious, onClose]);
+
+  const handleTabChange = useCallback((tab: Tab) => {
+    setActiveTab(tab);
+  }, []);
 
   // Sync state when song changes
   useEffect(() => {
@@ -203,6 +209,8 @@ const Modal: React.FC<ModalProps> = ({
               src={localCover || 'https://picsum.photos/200/200'} 
               className="w-32 h-32 rounded shadow-lg border-2 border-white/20 bg-gray-800 object-cover"
               alt={song.title}
+              loading="eager"
+              decoding="async"
             />
             <div className="absolute -bottom-4 -right-4">
               <AudioPlayer previewUrl={localPreview} />
@@ -231,13 +239,13 @@ const Modal: React.FC<ModalProps> = ({
         {/* Tabs */}
         <div className="bg-white border-b border-gray-200 px-6 md:px-8 flex space-x-8">
           <button 
-            onClick={() => setActiveTab('overview')}
+            onClick={() => handleTabChange('overview')}
             className={`py-4 font-bold uppercase tracking-wider text-sm border-b-4 transition-colors ${activeTab === 'overview' ? 'border-[#d00018] text-[#d00018]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
           >
             Overzicht
           </button>
           <button 
-            onClick={() => setActiveTab('lyrics')}
+            onClick={() => handleTabChange('lyrics')}
             className={`py-4 font-bold uppercase tracking-wider text-sm border-b-4 transition-colors ${activeTab === 'lyrics' ? 'border-[#d00018] text-[#d00018]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
           >
             Songtekst
@@ -330,6 +338,8 @@ const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
-};
+});
+
+Modal.displayName = 'Modal';
 
 export default Modal;
