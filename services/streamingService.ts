@@ -232,6 +232,184 @@ export interface SpotifyPlaylistResult {
   failedSongs: Array<{ title: string; artist: string }>;
 }
 
+// Helper function to clean and normalize search strings
+const cleanSearchString = (str: string): string => {
+  return str
+    .trim()
+    // Remove common prefixes/suffixes that might interfere
+    .replace(/^the\s+/i, '')
+    .replace(/\s+the\s*$/i, '');
+};
+
+// Helper function to extract main artist (remove featured artists)
+const extractMainArtist = (artist: string): string => {
+  // Remove common featured artist patterns
+  const cleaned = artist
+    .split(/ft\.|feat\.|featuring|&|,|en|met/i)[0]
+    .trim();
+  return cleanSearchString(cleaned);
+};
+
+// Helper function to clean title (remove parenthetical info that might not match)
+const cleanTitle = (title: string): string => {
+  // Remove content in parentheses, but keep it for fallback
+  const withoutParens = title.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+  return cleanSearchString(withoutParens || title);
+};
+
+// Helper function to escape special characters for Spotify search
+const escapeSpotifyQuery = (str: string): string => {
+  // Spotify search doesn't need escaping for most characters, but quotes should be handled
+  // We'll use quotes in the query string itself, so we need to escape internal quotes
+  return str.replace(/"/g, '\\"');
+};
+
+// Search for a track on Spotify using multiple strategies
+const searchSpotifyTrack = async (
+  token: string,
+  artist: string,
+  title: string
+): Promise<string | null> => {
+  // Generate multiple search queries to try
+  const mainArtist = extractMainArtist(artist);
+  const cleanTitleStr = cleanTitle(title);
+  const originalTitle = title.trim();
+  
+  // Build search queries with proper escaping
+  const searchQueries = [
+    // Strategy 1: Exact match with original artist and title (quoted for exact match)
+    `artist:"${escapeSpotifyQuery(artist)}" track:"${escapeSpotifyQuery(title)}"`,
+    // Strategy 2: Exact match with cleaned artist and title
+    `artist:"${escapeSpotifyQuery(mainArtist)}" track:"${escapeSpotifyQuery(cleanTitleStr)}"`,
+    // Strategy 3: Without quotes (more flexible matching)
+    `artist:${artist} track:${title}`,
+    // Strategy 4: Main artist without quotes, cleaned title
+    `artist:${mainArtist} track:${cleanTitleStr}`,
+    // Strategy 5: Simple search without operators (most flexible)
+    `${artist} ${title}`,
+    // Strategy 6: Main artist with original title
+    `${mainArtist} ${title}`,
+    // Strategy 7: Main artist with cleaned title
+    `${mainArtist} ${cleanTitleStr}`,
+    // Strategy 8: Just title (sometimes works for very popular songs)
+    title,
+    // Strategy 9: Clean title only
+    cleanTitleStr,
+  ];
+
+  // Try each search query
+  for (const query of searchQueries) {
+    try {
+      const encodedQuery = encodeURIComponent(query);
+      const searchResponse = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodedQuery}&type=track&limit=5`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        if (searchData.tracks?.items?.length > 0) {
+          // Try to find the best match
+          const items = searchData.tracks.items;
+          
+          // Helper to normalize strings for comparison
+          const normalize = (str: string): string => {
+            return str
+              .toLowerCase()
+              .replace(/[^\w\s]/g, '') // Remove punctuation
+              .replace(/\s+/g, ' ')
+              .trim();
+          };
+          
+          // Helper to check if two strings match (fuzzy)
+          const stringsMatch = (str1: string, str2: string): boolean => {
+            const norm1 = normalize(str1);
+            const norm2 = normalize(str2);
+            
+            // Exact match
+            if (norm1 === norm2) return true;
+            
+            // One contains the other (good match)
+            if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
+            
+            // Check if they share significant common words (for longer strings)
+            const words1 = norm1.split(/\s+/).filter(w => w.length > 2);
+            const words2 = norm2.split(/\s+/).filter(w => w.length > 2);
+            
+            if (words1.length > 0 && words2.length > 0) {
+              const commonWords = words1.filter(w => words2.includes(w));
+              // If more than 50% of words match, consider it a match
+              const matchRatio = commonWords.length / Math.max(words1.length, words2.length);
+              if (matchRatio > 0.5) return true;
+            }
+            
+            return false;
+          };
+          
+          // First, try exact match on artist and title
+          const exactMatch = items.find((item: any) => {
+            const itemArtist = item.artists?.[0]?.name || '';
+            const itemTitle = item.name || '';
+            
+            return stringsMatch(itemArtist, artist) && stringsMatch(itemTitle, title);
+          });
+          
+          if (exactMatch) {
+            return exactMatch.uri;
+          }
+          
+          // If no exact match, try with main artist and original title
+          const mainArtistOriginalTitleMatch = items.find((item: any) => {
+            const itemArtist = item.artists?.[0]?.name || '';
+            const itemTitle = item.name || '';
+            
+            return stringsMatch(itemArtist, mainArtist) && stringsMatch(itemTitle, title);
+          });
+          
+          if (mainArtistOriginalTitleMatch) {
+            return mainArtistOriginalTitleMatch.uri;
+          }
+          
+          // Try with main artist and cleaned title
+          const mainArtistCleanTitleMatch = items.find((item: any) => {
+            const itemArtist = item.artists?.[0]?.name || '';
+            const itemTitle = item.name || '';
+            
+            return stringsMatch(itemArtist, mainArtist) && stringsMatch(itemTitle, cleanTitleStr);
+          });
+          
+          if (mainArtistCleanTitleMatch) {
+            return mainArtistCleanTitleMatch.uri;
+          }
+          
+          // If still no match, check if title matches well (title is most important)
+          const titleMatch = items.find((item: any) => {
+            const itemTitle = item.name || '';
+            return stringsMatch(itemTitle, cleanTitleStr) || stringsMatch(itemTitle, title);
+          });
+          
+          if (titleMatch) {
+            return titleMatch.uri;
+          }
+          
+          // Last resort: return first result if we have any
+          // This might not be the right song, but it's better than nothing
+          return items[0].uri;
+        }
+      }
+    } catch (e) {
+      // Continue to next search strategy
+      continue;
+    }
+  }
+
+  return null;
+};
+
 export const createSpotifyPlaylist = async (
   songs: SongData[], 
   playlistName: string,
@@ -287,23 +465,9 @@ export const createSpotifyPlaylist = async (
     }
 
     try {
-      const searchQuery = encodeURIComponent(`artist:${song.artist} track:${song.title}`);
-      const searchResponse = await fetch(
-        `https://api.spotify.com/v1/search?q=${searchQuery}&type=track&limit=1`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (searchResponse.ok) {
-        const searchData = await searchResponse.json();
-        if (searchData.tracks.items.length > 0) {
-          trackUris.push(searchData.tracks.items[0].uri);
-        } else {
-          failedSongs.push({ title: song.title, artist: song.artist });
-        }
+      const trackUri = await searchSpotifyTrack(token, song.artist, song.title);
+      if (trackUri) {
+        trackUris.push(trackUri);
       } else {
         failedSongs.push({ title: song.title, artist: song.artist });
       }
