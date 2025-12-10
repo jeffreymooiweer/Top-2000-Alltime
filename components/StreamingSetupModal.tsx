@@ -22,7 +22,7 @@ interface StreamingSetupModalProps {
 
 const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service, onClose, onAuthenticated }) => {
   const [clientId, setClientId] = useState('');
-  const [step, setStep] = useState<'setup' | 'instructions'>('setup');
+  const [redirectUrl] = useState(`${window.location.origin}${window.location.pathname}#${service}-callback`);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -50,12 +50,13 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
     }
   }, [service]);
 
-  const handleSave = () => {
+  const handleAuthenticate = async () => {
     if (!clientId.trim()) {
       alert('Voer een Client ID in');
       return;
     }
 
+    // Save client ID first
     if (service === 'spotify') {
       saveSpotifyConfig({ clientId: clientId.trim() });
     } else if (service === 'deezer') {
@@ -64,7 +65,18 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
       saveYouTubeConfig({ clientId: clientId.trim() });
     }
 
-    setStep('instructions');
+    // Then initiate authentication
+    try {
+      if (service === 'spotify') {
+        await initiateSpotifyAuth();
+      } else if (service === 'deezer') {
+        initiateDeezerAuth();
+      } else {
+        await initiateYouTubeAuth();
+      }
+    } catch (error: any) {
+      alert(`Fout bij starten authenticatie: ${error.message}`);
+    }
   };
 
   const getServiceInfo = () => {
@@ -169,7 +181,55 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {step === 'setup' ? (
+          <div className="space-y-6">
+            {/* Instructions Section */}
+            <div>
+              <h3 className="text-lg font-bold mb-4">Stap-voor-stap instructies:</h3>
+              <ol className="list-decimal list-inside space-y-2 text-gray-700">
+                {info.instructions.map((instruction, idx) => {
+                  // Check if this instruction contains the developer URL
+                  if (instruction.includes('developer.spotify.com') || instruction.includes('developers.deezer.com') || instruction.includes('console.cloud.google.com')) {
+                    return (
+                      <li key={idx} className="mb-2">
+                        Ga naar{' '}
+                        <a
+                          href={info.developerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#d00018] hover:underline font-bold"
+                        >
+                          {info.developerUrl}
+                        </a>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={idx} className="mb-2">
+                      {instruction.startsWith('http') ? (
+                        <div className="mt-1 bg-gray-100 p-2 rounded font-mono text-xs break-all">
+                          {instruction}
+                        </div>
+                      ) : (
+                        instruction
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+
+            {/* Redirect URI Section */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800 font-bold mb-1">Redirect URI:</p>
+              <p className="text-xs text-yellow-700 font-mono break-all bg-yellow-100 p-2 rounded">
+                {redirectUrl}
+              </p>
+              <p className="text-xs text-yellow-700 mt-2">
+                Kopieer deze URL en voeg deze toe aan je {service === 'deezer' ? 'Application' : 'OAuth App'} settings.
+              </p>
+            </div>
+
+            {/* Input Fields */}
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -184,88 +244,33 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
                 />
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800 font-bold mb-2">Belangrijk:</p>
-                <p className="text-sm text-blue-700">
-                  Je moet eerst een {service === 'deezer' ? 'Application' : 'OAuth App'} aanmaken bij {info.name}.
-                  Volg de instructies hieronder om je Client ID te krijgen.
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Redirect URL
+                </label>
+                <input
+                  type="text"
+                  value={redirectUrl}
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-mono text-xs"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Deze URL moet worden toegevoegd aan je {service === 'deezer' ? 'Application' : 'OAuth App'} settings.
                 </p>
               </div>
+            </div>
 
+            {/* Action Buttons */}
+            <div className="space-y-3">
               <button
-                onClick={handleSave}
-                className="w-full bg-[#d00018] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#b00014] transition"
+                onClick={handleAuthenticate}
+                disabled={!clientId.trim()}
+                className="w-full bg-[#d00018] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#b00014] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                Client ID opslaan en instructies bekijken
+                Koppel {info.name} Account
               </button>
             </div>
-          ) : (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-bold mb-4">Stap-voor-stap instructies:</h3>
-                <ol className="list-decimal list-inside space-y-2 text-gray-700">
-                  {info.instructions.map((instruction, idx) => (
-                    <li key={idx} className="mb-2">
-                      {instruction.startsWith('http') ? (
-                        <div className="mt-1 bg-gray-100 p-2 rounded font-mono text-xs break-all">
-                          {instruction}
-                        </div>
-                      ) : (
-                        instruction
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800 font-bold mb-1">Redirect URI:</p>
-                <p className="text-xs text-yellow-700 font-mono break-all bg-yellow-100 p-2 rounded">
-                  {info.redirectUrl}
-                </p>
-                <p className="text-xs text-yellow-700 mt-2">
-                  Kopieer deze URL en voeg deze toe aan je {service === 'deezer' ? 'Application' : 'OAuth App'} settings.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setStep('setup')}
-                    className="flex-1 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-bold hover:bg-gray-50 transition"
-                  >
-                    Terug
-                  </button>
-                  <a
-                    href={info.developerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 bg-gray-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-gray-700 transition text-center"
-                  >
-                    Open Developer Portal
-                  </a>
-                </div>
-                <button
-                  onClick={async () => {
-                    try {
-                      if (service === 'spotify') {
-                        await initiateSpotifyAuth();
-                      } else if (service === 'deezer') {
-                        initiateDeezerAuth();
-                      } else {
-                        await initiateYouTubeAuth();
-                      }
-                    } catch (error: any) {
-                      alert(`Fout bij starten authenticatie: ${error.message}`);
-                    }
-                  }}
-                  className="w-full bg-[#d00018] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#b00014] transition"
-                >
-                  Koppel {info.name} Account
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
