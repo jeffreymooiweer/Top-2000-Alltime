@@ -226,7 +226,17 @@ const getSpotifyAccessToken = async (): Promise<string> => {
   return config.accessToken;
 };
 
-export const createSpotifyPlaylist = async (songs: SongData[], playlistName: string): Promise<string> => {
+export interface SpotifyPlaylistResult {
+  playlistUrl: string;
+  addedCount: number;
+  failedSongs: Array<{ title: string; artist: string }>;
+}
+
+export const createSpotifyPlaylist = async (
+  songs: SongData[], 
+  playlistName: string,
+  onProgress?: (current: number, total: number) => void
+): Promise<SpotifyPlaylistResult> => {
   const token = await getSpotifyAccessToken();
 
   // Get user ID
@@ -263,11 +273,19 @@ export const createSpotifyPlaylist = async (songs: SongData[], playlistName: str
 
   const playlist = await playlistResponse.json();
 
-  // Search and add tracks
+  // Search and add tracks - process ALL songs
   const trackUris: string[] = [];
-  let addedCount = 0;
+  const failedSongs: Array<{ title: string; artist: string }> = [];
+  const totalSongs = songs.length;
 
-  for (const song of songs.slice(0, 100)) { // Spotify limit: 100 tracks per request
+  for (let i = 0; i < songs.length; i++) {
+    const song = songs[i];
+    
+    // Update progress
+    if (onProgress) {
+      onProgress(i + 1, totalSongs);
+    }
+
     try {
       const searchQuery = encodeURIComponent(`artist:${song.artist} track:${song.title}`);
       const searchResponse = await fetch(
@@ -283,15 +301,19 @@ export const createSpotifyPlaylist = async (songs: SongData[], playlistName: str
         const searchData = await searchResponse.json();
         if (searchData.tracks.items.length > 0) {
           trackUris.push(searchData.tracks.items[0].uri);
-          addedCount++;
+        } else {
+          failedSongs.push({ title: song.title, artist: song.artist });
         }
+      } else {
+        failedSongs.push({ title: song.title, artist: song.artist });
       }
     } catch (e) {
       console.warn(`Kon ${song.title} niet vinden op Spotify:`, e);
+      failedSongs.push({ title: song.title, artist: song.artist });
     }
   }
 
-  // Add tracks to playlist (in batches of 100)
+  // Add tracks to playlist (in batches of 100 - Spotify API limit)
   if (trackUris.length > 0) {
     for (let i = 0; i < trackUris.length; i += 100) {
       const batch = trackUris.slice(i, i + 100);
@@ -307,12 +329,19 @@ export const createSpotifyPlaylist = async (songs: SongData[], playlistName: str
       });
 
       if (!addResponse.ok) {
-        console.warn('Kon sommige tracks niet toevoegen aan playlist');
+        const errorData = await addResponse.json().catch(() => ({}));
+        console.warn('Kon sommige tracks niet toevoegen aan playlist:', errorData);
+        // If batch add fails, we can't identify which specific tracks failed
+        // So we'll just log it
       }
     }
   }
 
-  return `https://open.spotify.com/playlist/${playlist.id}`;
+  return {
+    playlistUrl: `https://open.spotify.com/playlist/${playlist.id}`,
+    addedCount: trackUris.length,
+    failedSongs,
+  };
 };
 
 // Deezer OAuth
