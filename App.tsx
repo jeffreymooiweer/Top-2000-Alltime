@@ -3,9 +3,24 @@ import React, { useEffect, useState, useMemo, useRef, useCallback, Suspense, laz
 import { SongData } from './types';
 import { scrapeWikipediaData } from './services/wikipediaService'; 
 import { prefetchMetadata } from './services/itunesService';
-import { exportToExcel, exportToPDF, exportToSpotify, exportToDeezer, exportToYouTubeMusic } from './services/exportService';
+import { exportToExcel, exportToPDF } from './services/exportService';
+import {
+  initiateSpotifyAuth,
+  handleSpotifyCallback,
+  initiateDeezerAuth,
+  handleDeezerCallback,
+  initiateYouTubeAuth,
+  handleYouTubeCallback,
+  createSpotifyPlaylist,
+  createDeezerPlaylist,
+  createYouTubePlaylist,
+  isSpotifyAuthenticated,
+  isDeezerAuthenticated,
+  isYouTubeAuthenticated,
+} from './services/streamingService';
 import SongCard from './components/SongCard';
 import NewsFeed from './components/NewsFeed';
+import StreamingSetupModal from './components/StreamingSetupModal';
 
 // Lazy load Modal component (large component with chart and analysis)
 const Modal = lazy(() => import('./components/Modal'));
@@ -50,6 +65,10 @@ const App: React.FC = () => {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   
+  // Streaming Setup State
+  const [streamingSetupService, setStreamingSetupService] = useState<'spotify' | 'deezer' | 'youtube' | null>(null);
+  const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
+  
   // Year Selection State: 'all-time' or a specific year string like '2023'
   const [selectedYear, setSelectedYear] = useState<string>('all-time');
   
@@ -58,6 +77,84 @@ const App: React.FC = () => {
   const observerTarget = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
+  // Handle OAuth Callbacks
+  useEffect(() => {
+    const hash = window.location.hash;
+    
+    // Spotify callback
+    if (hash.includes('spotify-callback')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const code = params.get('code');
+      const error = params.get('error');
+      
+      if (error) {
+        alert(`Spotify authenticatie mislukt: ${error}`);
+        window.location.hash = '';
+        return;
+      }
+      
+      if (code) {
+        handleSpotifyCallback(code)
+          .then(() => {
+            alert('Spotify account succesvol gekoppeld!');
+            window.location.hash = '';
+            setStreamingSetupService(null);
+          })
+          .catch((err) => {
+            alert(`Fout bij koppelen: ${err.message}`);
+            window.location.hash = '';
+          });
+      }
+    }
+    
+    // Deezer callback
+    if (hash.includes('deezer-callback')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get('access_token');
+      const expires = params.get('expires');
+      const error = params.get('error_reason');
+      
+      if (error) {
+        alert(`Deezer authenticatie mislukt: ${error}`);
+        window.location.hash = '';
+        return;
+      }
+      
+      if (accessToken && expires) {
+        handleDeezerCallback(accessToken, parseInt(expires));
+        alert('Deezer account succesvol gekoppeld!');
+        window.location.hash = '';
+        setStreamingSetupService(null);
+      }
+    }
+    
+    // YouTube callback
+    if (hash.includes('youtube-callback')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const code = params.get('code');
+      const error = params.get('error');
+      
+      if (error) {
+        alert(`YouTube authenticatie mislukt: ${error}`);
+        window.location.hash = '';
+        return;
+      }
+      
+      if (code) {
+        handleYouTubeCallback(code)
+          .then(() => {
+            alert('YouTube account succesvol gekoppeld!');
+            window.location.hash = '';
+            setStreamingSetupService(null);
+          })
+          .catch((err) => {
+            alert(`Fout bij koppelen: ${err.message}`);
+            window.location.hash = '';
+          });
+      }
+    }
+  }, []);
+
   // Initialize Data
   useEffect(() => {
     const initData = async () => {
@@ -314,33 +411,106 @@ const App: React.FC = () => {
   const toggleShare = useCallback(() => { setIsShareOpen(prev => !prev); setIsDownloadOpen(false); }, []);
   const toggleDownload = useCallback(() => { setIsDownloadOpen(prev => !prev); setIsShareOpen(false); }, []);
 
-  const handleDownload = useCallback((type: string) => {
+  const handleDownload = useCallback(async (type: string) => {
     try {
       switch (type) {
         case 'Excel':
           exportToExcel(processedSongs, selectedYear);
+          setIsDownloadOpen(false);
           break;
         case 'PDF':
           exportToPDF(processedSongs, selectedYear);
+          setIsDownloadOpen(false);
           break;
         case 'Spotify':
-          exportToSpotify(processedSongs);
+          await handleStreamingExport('spotify');
           break;
         case 'Deezer':
-          exportToDeezer(processedSongs);
+          await handleStreamingExport('deezer');
           break;
         case 'YouTube Music':
-          exportToYouTubeMusic(processedSongs);
+          await handleStreamingExport('youtube');
           break;
         default:
           console.warn(`Unknown export type: ${type}`);
       }
-      setIsDownloadOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error exporting ${type}:`, error);
-      alert(`Er is een fout opgetreden bij het exporteren naar ${type}. Probeer het opnieuw.`);
+      alert(`Er is een fout opgetreden: ${error.message || 'Onbekende fout'}`);
     }
   }, [processedSongs, selectedYear]);
+
+  const handleStreamingExport = async (service: 'spotify' | 'deezer' | 'youtube') => {
+    // Check if configured
+    let config;
+    if (service === 'spotify') {
+      config = isSpotifyAuthenticated();
+    } else if (service === 'deezer') {
+      config = isDeezerAuthenticated();
+    } else {
+      config = isYouTubeAuthenticated();
+    }
+
+    if (!config) {
+      // Show setup modal
+      setStreamingSetupService(service);
+      setIsDownloadOpen(false);
+      return;
+    }
+
+    // Check if authenticated, if not initiate auth
+    if (service === 'spotify' && !isSpotifyAuthenticated()) {
+      await initiateSpotifyAuth();
+      return;
+    } else if (service === 'deezer' && !isDeezerAuthenticated()) {
+      initiateDeezerAuth();
+      return;
+    } else if (service === 'youtube' && !isYouTubeAuthenticated()) {
+      await initiateYouTubeAuth();
+      return;
+    }
+
+    // Create playlist
+    setIsCreatingPlaylist(true);
+    setIsDownloadOpen(false);
+
+    try {
+      const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
+      const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
+      
+      let playlistUrl: string;
+      if (service === 'spotify') {
+        playlistUrl = await createSpotifyPlaylist(processedSongs, playlistName);
+      } else if (service === 'deezer') {
+        playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
+      } else {
+        playlistUrl = await createYouTubePlaylist(processedSongs, playlistName);
+      }
+
+      alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
+      window.open(playlistUrl, '_blank');
+    } catch (error: any) {
+      alert(`Fout bij aanmaken playlist: ${error.message}`);
+    } finally {
+      setIsCreatingPlaylist(false);
+    }
+  };
+
+  const handleStreamingSetupAuth = useCallback(async () => {
+    if (!streamingSetupService) return;
+
+    try {
+      if (streamingSetupService === 'spotify') {
+        await initiateSpotifyAuth();
+      } else if (streamingSetupService === 'deezer') {
+        initiateDeezerAuth();
+      } else {
+        await initiateYouTubeAuth();
+      }
+    } catch (error: any) {
+      alert(`Fout bij starten authenticatie: ${error.message}`);
+    }
+  }, [streamingSetupService]);
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] font-sans">
@@ -463,15 +633,30 @@ const App: React.FC = () => {
                                  </div>
                                  <button onClick={() => handleDownload('Spotify')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
                                      <img src="/Image/spotify.png" alt="Spotify" className="w-6 h-6 object-contain" />
-                                     <span className="font-medium">Spotify</span>
+                                     <div className="flex-1 flex items-center justify-between">
+                                       <span className="font-medium">Spotify</span>
+                                       {isSpotifyAuthenticated() && (
+                                         <span className="text-xs text-green-600 font-bold">✓</span>
+                                       )}
+                                     </div>
                                  </button>
                                  <button onClick={() => handleDownload('Deezer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
                                      <img src="/Image/deezer.png" alt="Deezer" className="w-6 h-6 object-contain" />
-                                     <span className="font-medium">Deezer</span>
+                                     <div className="flex-1 flex items-center justify-between">
+                                       <span className="font-medium">Deezer</span>
+                                       {isDeezerAuthenticated() && (
+                                         <span className="text-xs text-green-600 font-bold">✓</span>
+                                       )}
+                                     </div>
                                  </button>
                                  <button onClick={() => handleDownload('YouTube Music')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
                                      <img src="/Image/play.png" alt="YouTube Music" className="w-6 h-6 object-contain" />
-                                     <span className="font-medium">YouTube Music</span>
+                                     <div className="flex-1 flex items-center justify-between">
+                                       <span className="font-medium">YouTube Music</span>
+                                       {isYouTubeAuthenticated() && (
+                                         <span className="text-xs text-green-600 font-bold">✓</span>
+                                       )}
+                                     </div>
                                  </button>
                              </div>
                          )}
@@ -648,6 +833,24 @@ const App: React.FC = () => {
               hasPrevious={hasPrevious}
           />
         </Suspense>
+      )}
+
+      {streamingSetupService && (
+        <StreamingSetupModal
+          service={streamingSetupService}
+          onClose={() => setStreamingSetupService(null)}
+          onAuthenticated={handleStreamingSetupAuth}
+        />
+      )}
+
+      {isCreatingPlaylist && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-8 max-w-md mx-4 text-center">
+            <div className="w-12 h-12 border-4 border-[#d00018] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-lg font-bold text-gray-900">Playlist aanmaken...</p>
+            <p className="text-sm text-gray-600 mt-2">Dit kan even duren...</p>
+          </div>
+        </div>
       )}
 
     </div>
