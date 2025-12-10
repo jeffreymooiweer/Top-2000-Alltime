@@ -1,8 +1,8 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import { fetchNewsFeed, NewsItem } from '../services/rssService';
 
-const NewsFeed: React.FC = () => {
+const NewsFeed: React.FC = memo(() => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +50,8 @@ const NewsFeed: React.FC = () => {
                   src={item.imageUrl} 
                   alt={item.title} 
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  loading="lazy"
+                  decoding="async"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
@@ -80,6 +82,8 @@ const NewsFeed: React.FC = () => {
       )}
     </section>
   );
-};
+});
+
+NewsFeed.displayName = 'NewsFeed';
 
 export default NewsFeed;

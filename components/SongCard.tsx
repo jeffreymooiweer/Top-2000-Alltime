@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { SongData } from '../types';
 import { fetchSongMetadata } from '../services/itunesService';
 import AudioPlayer from './AudioPlayer';
@@ -11,7 +11,7 @@ interface SongCardProps {
   onSelect: (song: SongData) => void;
 }
 
-const SongCard: React.FC<SongCardProps> = ({ song, rank, previousRank, onSelect }) => {
+const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSelect }) => {
   const [coverUrl, setCoverUrl] = useState<string | null | undefined>(song.coverUrl);
   const [previewUrl, setPreviewUrl] = useState<string | null | undefined>(song.previewUrl);
   const [isVisible, setIsVisible] = useState(false);
@@ -19,6 +19,9 @@ const SongCard: React.FC<SongCardProps> = ({ song, rank, previousRank, onSelect 
 
   // Intersection Observer for Lazy Loading
   useEffect(() => {
+    const target = cardRef.current;
+    if (!target || isVisible) return; // Early return if already visible
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
@@ -29,12 +32,12 @@ const SongCard: React.FC<SongCardProps> = ({ song, rank, previousRank, onSelect 
       { threshold: 0.1, rootMargin: '50px' } // Load slightly before it comes into view
     );
 
-    if (cardRef.current) {
-      observer.observe(cardRef.current);
-    }
+    observer.observe(target);
 
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      observer.disconnect();
+    };
+  }, [isVisible]);
 
   // Fetch Metadata only when visible
   useEffect(() => {
@@ -76,10 +79,14 @@ const SongCard: React.FC<SongCardProps> = ({ song, rank, previousRank, onSelect 
       }
   }
 
+  const handleClick = useCallback(() => {
+    onSelect({ ...song, coverUrl, previewUrl });
+  }, [onSelect, song, coverUrl, previewUrl]);
+
   return (
     <div 
         ref={cardRef}
-        onClick={() => onSelect({ ...song, coverUrl, previewUrl })}
+        onClick={handleClick}
         className="bg-white rounded overflow-hidden flex shadow-md group cursor-pointer transition-transform duration-200 hover:-translate-y-1 min-h-[96px] items-stretch"
     >
         {/* Rank Badge Section */}
@@ -103,6 +110,7 @@ const SongCard: React.FC<SongCardProps> = ({ song, rank, previousRank, onSelect 
                         src={coverUrl} 
                         alt={song.title} 
                         loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover animate-fade-in" 
                     />
                     ) : (
@@ -135,12 +143,14 @@ const SongCard: React.FC<SongCardProps> = ({ song, rank, previousRank, onSelect 
                 </div>
 
                 {/* Right Icon */}
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <img src="/Image/chart.png" alt="Chart" className="w-6 h-6 opacity-50" />
                 </div>
         </div>
     </div>
   );
-};
+});
+
+SongCard.displayName = 'SongCard';
 
 export default SongCard;

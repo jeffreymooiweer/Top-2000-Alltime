@@ -1,12 +1,29 @@
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
 import { SongData } from './types';
 import { scrapeWikipediaData } from './services/wikipediaService'; 
 import { prefetchMetadata } from './services/itunesService';
-import { exportToExcel, exportToPDF, exportToSpotify, exportToDeezer, exportToYouTubeMusic } from './services/exportService';
-import Modal from './components/Modal';
+import { exportToExcel, exportToPDF } from './services/exportService';
+import {
+  initiateSpotifyAuth,
+  handleSpotifyCallback,
+  initiateDeezerAuth,
+  handleDeezerCallback,
+  initiateYouTubeAuth,
+  handleYouTubeCallback,
+  createSpotifyPlaylist,
+  createDeezerPlaylist,
+  createYouTubePlaylist,
+  isSpotifyAuthenticated,
+  isDeezerAuthenticated,
+  isYouTubeAuthenticated,
+} from './services/streamingService';
 import SongCard from './components/SongCard';
 import NewsFeed from './components/NewsFeed';
+import StreamingSetupModal from './components/StreamingSetupModal';
+
+// Lazy load Modal component (large component with chart and analysis)
+const Modal = lazy(() => import('./components/Modal'));
 
 // Calculation Logic:
 // Rank 1 = 2000 points. Rank 2000 = 1 point.
@@ -41,11 +58,16 @@ const App: React.FC = () => {
   const [loadingStatus, setLoadingStatus] = useState("Verbinding maken met Wikipedia...");
   const [selectedSong, setSelectedSong] = useState<SongData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // Header Menus State
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  
+  // Streaming Setup State
+  const [streamingSetupService, setStreamingSetupService] = useState<'spotify' | 'deezer' | 'youtube' | null>(null);
+  const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   
   // Year Selection State: 'all-time' or a specific year string like '2023'
   const [selectedYear, setSelectedYear] = useState<string>('all-time');
@@ -55,6 +77,84 @@ const App: React.FC = () => {
   const observerTarget = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
+  // Handle OAuth Callbacks
+  useEffect(() => {
+    const hash = window.location.hash;
+    
+    // Spotify callback
+    if (hash.includes('spotify-callback')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const code = params.get('code');
+      const error = params.get('error');
+      
+      if (error) {
+        alert(`Spotify authenticatie mislukt: ${error}`);
+        window.location.hash = '';
+        return;
+      }
+      
+      if (code) {
+        handleSpotifyCallback(code)
+          .then(() => {
+            alert('Spotify account succesvol gekoppeld!');
+            window.location.hash = '';
+            setStreamingSetupService(null);
+          })
+          .catch((err) => {
+            alert(`Fout bij koppelen: ${err.message}`);
+            window.location.hash = '';
+          });
+      }
+    }
+    
+    // Deezer callback
+    if (hash.includes('deezer-callback')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get('access_token');
+      const expires = params.get('expires');
+      const error = params.get('error_reason');
+      
+      if (error) {
+        alert(`Deezer authenticatie mislukt: ${error}`);
+        window.location.hash = '';
+        return;
+      }
+      
+      if (accessToken && expires) {
+        handleDeezerCallback(accessToken, parseInt(expires));
+        alert('Deezer account succesvol gekoppeld!');
+        window.location.hash = '';
+        setStreamingSetupService(null);
+      }
+    }
+    
+    // YouTube callback
+    if (hash.includes('youtube-callback')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const code = params.get('code');
+      const error = params.get('error');
+      
+      if (error) {
+        alert(`YouTube authenticatie mislukt: ${error}`);
+        window.location.hash = '';
+        return;
+      }
+      
+      if (code) {
+        handleYouTubeCallback(code)
+          .then(() => {
+            alert('YouTube account succesvol gekoppeld!');
+            window.location.hash = '';
+            setStreamingSetupService(null);
+          })
+          .catch((err) => {
+            alert(`Fout bij koppelen: ${err.message}`);
+            window.location.hash = '';
+          });
+      }
+    }
+  }, []);
+
   // Initialize Data
   useEffect(() => {
     const initData = async () => {
@@ -196,9 +296,9 @@ const App: React.FC = () => {
   const processedSongs = useMemo(() => {
     let result = [...songs];
 
-    // 1. Search Filter
-    if (searchQuery) {
-        const lowerQuery = searchQuery.toLowerCase();
+    // 1. Search Filter (using debounced query)
+    if (debouncedSearchQuery) {
+        const lowerQuery = debouncedSearchQuery.toLowerCase();
         result = result.filter(s => 
             s.title.toLowerCase().includes(lowerQuery) || 
             s.artist.toLowerCase().includes(lowerQuery)
@@ -218,40 +318,51 @@ const App: React.FC = () => {
     }
 
     return result;
-  }, [songs, searchQuery, selectedYear]);
+  }, [songs, debouncedSearchQuery, selectedYear]);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Reset infinite scroll when filters change
   useEffect(() => {
     setVisibleCount(BATCH_SIZE);
-    if (searchQuery) {
+    if (debouncedSearchQuery) {
         // Only scroll if we are deep down, otherwise it feels jumpy
         if (window.scrollY > 500) {
             window.scrollTo({ top: 400, behavior: 'smooth' });
         }
     }
-  }, [searchQuery, selectedYear]);
+  }, [debouncedSearchQuery, selectedYear]);
 
   // Infinite Scroll Observer
   useEffect(() => {
+    if (loading || processedSongs.length === 0) return;
+
+    const target = observerTarget.current;
+    if (!target) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0].isIntersecting && visibleCount < processedSongs.length) {
           setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, processedSongs.length));
         }
       },
       { threshold: 0.1, rootMargin: '400px' } // Increased rootMargin for earlier loading
     );
 
-    if (observerTarget.current && !loading && processedSongs.length > 0) {
-      observer.observe(observerTarget.current);
-    }
+    observer.observe(target);
 
     return () => {
-      if (observerTarget.current) observer.unobserve(observerTarget.current);
+      observer.disconnect();
     };
-  }, [loading, processedSongs.length]);
+  }, [loading, processedSongs.length, visibleCount]);
 
-  const visibleSongs = processedSongs.slice(0, visibleCount);
+  const visibleSongs = useMemo(() => processedSongs.slice(0, visibleCount), [processedSongs, visibleCount]);
 
   // Derived state for Modal (Other songs by artist)
   const otherSongsBySelectedArtist = useMemo(() => {
@@ -260,6 +371,14 @@ const App: React.FC = () => {
         .filter(s => s.artist === selectedSong.artist && s.id !== selectedSong.id)
         .sort((a,b) => (a.allTimeRank || 9999) - (b.allTimeRank || 9999));
   }, [selectedSong, songs]);
+
+  const handleSelectSong = useCallback((song: SongData) => {
+    setSelectedSong(song);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedSong(null);
+  }, []);
 
   // Derived state for Navigation
   const selectedSongIndex = useMemo(() => {
@@ -270,17 +389,17 @@ const App: React.FC = () => {
   const hasNext = selectedSongIndex >= 0 && selectedSongIndex < processedSongs.length - 1;
   const hasPrevious = selectedSongIndex > 0;
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (hasNext) {
       setSelectedSong(processedSongs[selectedSongIndex + 1]);
     }
-  };
+  }, [hasNext, processedSongs, selectedSongIndex]);
 
-  const handlePrevious = () => {
+  const handlePrevious = useCallback(() => {
     if (hasPrevious) {
       setSelectedSong(processedSongs[selectedSongIndex - 1]);
     }
-  };
+  }, [hasPrevious, processedSongs, selectedSongIndex]);
 
   const handleNavbarSearchClick = () => {
       if (searchInputRef.current) {
@@ -289,36 +408,109 @@ const App: React.FC = () => {
       }
   };
 
-  const toggleShare = () => { setIsShareOpen(!isShareOpen); setIsDownloadOpen(false); };
-  const toggleDownload = () => { setIsDownloadOpen(!isDownloadOpen); setIsShareOpen(false); };
+  const toggleShare = useCallback(() => { setIsShareOpen(prev => !prev); setIsDownloadOpen(false); }, []);
+  const toggleDownload = useCallback(() => { setIsDownloadOpen(prev => !prev); setIsShareOpen(false); }, []);
 
-  const handleDownload = (type: string) => {
+  const handleDownload = useCallback(async (type: string) => {
     try {
       switch (type) {
         case 'Excel':
           exportToExcel(processedSongs, selectedYear);
+          setIsDownloadOpen(false);
           break;
         case 'PDF':
           exportToPDF(processedSongs, selectedYear);
+          setIsDownloadOpen(false);
           break;
         case 'Spotify':
-          exportToSpotify(processedSongs);
+          await handleStreamingExport('spotify');
           break;
         case 'Deezer':
-          exportToDeezer(processedSongs);
+          await handleStreamingExport('deezer');
           break;
         case 'YouTube Music':
-          exportToYouTubeMusic(processedSongs);
+          await handleStreamingExport('youtube');
           break;
         default:
           console.warn(`Unknown export type: ${type}`);
       }
-      setIsDownloadOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error exporting ${type}:`, error);
-      alert(`Er is een fout opgetreden bij het exporteren naar ${type}. Probeer het opnieuw.`);
+      alert(`Er is een fout opgetreden: ${error.message || 'Onbekende fout'}`);
+    }
+  }, [processedSongs, selectedYear]);
+
+  const handleStreamingExport = async (service: 'spotify' | 'deezer' | 'youtube') => {
+    // Check if configured
+    let config;
+    if (service === 'spotify') {
+      config = isSpotifyAuthenticated();
+    } else if (service === 'deezer') {
+      config = isDeezerAuthenticated();
+    } else {
+      config = isYouTubeAuthenticated();
+    }
+
+    if (!config) {
+      // Show setup modal
+      setStreamingSetupService(service);
+      setIsDownloadOpen(false);
+      return;
+    }
+
+    // Check if authenticated, if not initiate auth
+    if (service === 'spotify' && !isSpotifyAuthenticated()) {
+      await initiateSpotifyAuth();
+      return;
+    } else if (service === 'deezer' && !isDeezerAuthenticated()) {
+      initiateDeezerAuth();
+      return;
+    } else if (service === 'youtube' && !isYouTubeAuthenticated()) {
+      await initiateYouTubeAuth();
+      return;
+    }
+
+    // Create playlist
+    setIsCreatingPlaylist(true);
+    setIsDownloadOpen(false);
+
+    try {
+      const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
+      const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
+      
+      let playlistUrl: string;
+      if (service === 'spotify') {
+        playlistUrl = await createSpotifyPlaylist(processedSongs, playlistName);
+      } else if (service === 'deezer') {
+        playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
+      } else {
+        playlistUrl = await createYouTubePlaylist(processedSongs, playlistName);
+      }
+
+      alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
+      window.open(playlistUrl, '_blank');
+    } catch (error: any) {
+      alert(`Fout bij aanmaken playlist: ${error.message}`);
+    } finally {
+      setIsCreatingPlaylist(false);
     }
   };
+
+  const handleStreamingSetupAuth = useCallback(async () => {
+    if (!streamingSetupService) return;
+
+    try {
+      if (streamingSetupService === 'spotify') {
+        await initiateSpotifyAuth();
+      } else if (streamingSetupService === 'deezer') {
+        initiateDeezerAuth();
+      } else {
+        await initiateYouTubeAuth();
+      }
+    } catch (error: any) {
+      alert(`Fout bij starten authenticatie: ${error.message}`);
+    }
+  }, [streamingSetupService]);
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] font-sans">
@@ -352,6 +544,8 @@ const App: React.FC = () => {
                     src="https://assets-start.npo.nl/resources/2025/11/20/41ed2cbc-8b8b-4b71-b6ec-9af8817f2a08.png" 
                     alt="Top 2000 Logo" 
                     className="h-16 w-auto object-contain py-1"
+                    loading="eager"
+                    fetchPriority="high"
                    />
                 </div>
             </div>
@@ -364,7 +558,7 @@ const App: React.FC = () => {
 
       <div className="max-w-6xl mx-auto md:px-4">
       
-        {!searchQuery && (
+        {!debouncedSearchQuery && (
             <div 
                 className="relative flex flex-col justify-center min-h-[400px] p-10 overflow-hidden"
                 style={{
@@ -383,6 +577,8 @@ const App: React.FC = () => {
                             src="https://upload.wikimedia.org/wikipedia/commons/a/a4/NPO_Radio_2_Top_2000_logo.png" 
                             alt="NPO Radio 2 Top 2000"
                             className="max-w-[240px] md:max-w-[350px] mb-6 drop-shadow-2xl"
+                            loading="eager"
+                            fetchPriority="high"
                         />
 
                          <h2 className="text-2xl md:text-4xl font-bold text-white mb-8 brand-font leading-tight drop-shadow-md">
@@ -396,10 +592,10 @@ const App: React.FC = () => {
         )}
 
         {/* RSS Feed Section */}
-        {!searchQuery && <NewsFeed />}
+        {!debouncedSearchQuery && <NewsFeed />}
 
         {/* Main List Container */}
-        <div className={`bg-gradient-to-b from-[#9a1a1a] to-[#2b0505] min-h-screen ${searchQuery ? 'rounded-t-xl' : 'rounded-t-none'} overflow-visible shadow-2xl relative pb-10`}>
+        <div className={`bg-gradient-to-b from-[#9a1a1a] to-[#2b0505] min-h-screen ${debouncedSearchQuery ? 'rounded-t-xl' : 'rounded-t-none'} overflow-visible shadow-2xl relative pb-10`}>
             
             {/* Header / Controls Section */}
             <div className="px-4 pt-8 pb-4 space-y-4">
@@ -425,27 +621,42 @@ const App: React.FC = () => {
                                      Download als
                                  </div>
                                  <button onClick={() => handleDownload('Excel')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                     <div className="w-6 h-6 bg-green-700 text-white flex items-center justify-center rounded text-xs font-bold">X</div>
+                                     <img src="/Image/Xls.png" alt="Excel" className="w-6 h-6 object-contain" />
                                      <span className="font-medium">Excel</span>
                                  </button>
                                  <button onClick={() => handleDownload('PDF')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <div className="w-6 h-6 bg-red-700 text-white flex items-center justify-center rounded text-xs font-bold">PDF</div>
+                                     <img src="/Image/pdf.png" alt="PDF" className="w-6 h-6 object-contain" />
                                      <span className="font-medium">PDF</span>
                                  </button>
                                  <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-1">
                                      Afspeellijst
                                  </div>
                                  <button onClick={() => handleDownload('Spotify')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                     <div className="w-6 h-6 bg-[#1DB954] text-white flex items-center justify-center rounded text-xs font-bold">♪</div>
-                                     <span className="font-medium">Spotify</span>
+                                     <img src="/Image/spotify.png" alt="Spotify" className="w-6 h-6 object-contain" />
+                                     <div className="flex-1 flex items-center justify-between">
+                                       <span className="font-medium">Spotify</span>
+                                       {isSpotifyAuthenticated() && (
+                                         <span className="text-xs text-green-600 font-bold">✓</span>
+                                       )}
+                                     </div>
                                  </button>
                                  <button onClick={() => handleDownload('Deezer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <div className="w-6 h-6 bg-[#FEAA2D] text-white flex items-center justify-center rounded text-xs font-bold">D</div>
-                                     <span className="font-medium">Deezer</span>
+                                     <img src="/Image/deezer.png" alt="Deezer" className="w-6 h-6 object-contain" />
+                                     <div className="flex-1 flex items-center justify-between">
+                                       <span className="font-medium">Deezer</span>
+                                       {isDeezerAuthenticated() && (
+                                         <span className="text-xs text-green-600 font-bold">✓</span>
+                                       )}
+                                     </div>
                                  </button>
                                  <button onClick={() => handleDownload('YouTube Music')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <div className="w-6 h-6 bg-[#FF0000] text-white flex items-center justify-center rounded text-xs font-bold">YT</div>
-                                     <span className="font-medium">YouTube Music</span>
+                                     <img src="/Image/play.png" alt="YouTube Music" className="w-6 h-6 object-contain" />
+                                     <div className="flex-1 flex items-center justify-between">
+                                       <span className="font-medium">YouTube Music</span>
+                                       {isYouTubeAuthenticated() && (
+                                         <span className="text-xs text-green-600 font-bold">✓</span>
+                                       )}
+                                     </div>
                                  </button>
                              </div>
                          )}
@@ -570,13 +781,13 @@ const App: React.FC = () => {
                                         song={song} 
                                         rank={displayRank} 
                                         previousRank={previousRank}
-                                        onSelect={(s) => setSelectedSong(s)} 
+                                        onSelect={handleSelectSong} 
                                     />
                                 );
                             })
                         ) : (
                             <div className="text-center py-10 text-white/60">
-                                {searchQuery 
+                                {debouncedSearchQuery 
                                     ? 'Geen nummers gevonden met deze zoekterm.' 
                                     : selectedYear !== 'all-time' 
                                         ? `Geen data beschikbaar voor het jaar ${selectedYear}.` 
@@ -606,16 +817,40 @@ const App: React.FC = () => {
       </footer>
 
       {selectedSong && (
-        <Modal 
-            song={selectedSong} 
-            onClose={() => setSelectedSong(null)} 
-            otherSongsByArtist={otherSongsBySelectedArtist}
-            onSelectSong={(s) => setSelectedSong(s)}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
-            hasNext={hasNext}
-            hasPrevious={hasPrevious}
+        <Suspense fallback={
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        }>
+          <Modal 
+              song={selectedSong} 
+              onClose={handleCloseModal} 
+              otherSongsByArtist={otherSongsBySelectedArtist}
+              onSelectSong={handleSelectSong}
+              onNext={handleNext}
+              onPrevious={handlePrevious}
+              hasNext={hasNext}
+              hasPrevious={hasPrevious}
+          />
+        </Suspense>
+      )}
+
+      {streamingSetupService && (
+        <StreamingSetupModal
+          service={streamingSetupService}
+          onClose={() => setStreamingSetupService(null)}
+          onAuthenticated={handleStreamingSetupAuth}
         />
+      )}
+
+      {isCreatingPlaylist && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-8 max-w-md mx-4 text-center">
+            <div className="w-12 h-12 border-4 border-[#d00018] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-lg font-bold text-gray-900">Playlist aanmaken...</p>
+            <p className="text-sm text-gray-600 mt-2">Dit kan even duren...</p>
+          </div>
+        </div>
       )}
 
     </div>

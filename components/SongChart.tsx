@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -15,15 +15,17 @@ interface SongChartProps {
   song: SongData;
 }
 
-const SongChart: React.FC<SongChartProps> = ({ song }) => {
+const SongChart: React.FC<SongChartProps> = memo(({ song }) => {
   // Transform ranking map to array, sort by year
-  const data = Object.entries(song.rankings)
-    .map(([year, rank]) => ({
-      year,
-      rank: rank === null ? null : rank, // null breaks line in recharts usually, or we can filter
-    }))
-    .filter(item => item.rank !== null) // Filter out years where it wasn't listed for cleaner line
-    .sort((a, b) => parseInt(a.year) - parseInt(b.year));
+  const data = useMemo(() => {
+    return Object.entries(song.rankings)
+      .map(([year, rank]) => ({
+        year,
+        rank: rank === null ? null : rank, // null breaks line in recharts usually, or we can filter
+      }))
+      .filter(item => item.rank !== null) // Filter out years where it wasn't listed for cleaner line
+      .sort((a, b) => parseInt(a.year) - parseInt(b.year));
+  }, [song.rankings]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -70,6 +72,8 @@ const SongChart: React.FC<SongChartProps> = ({ song }) => {
       </ResponsiveContainer>
     </div>
   );
-};
+});
+
+SongChart.displayName = 'SongChart';
 
 export default SongChart;

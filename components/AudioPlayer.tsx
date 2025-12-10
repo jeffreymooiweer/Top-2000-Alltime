@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, memo, useCallback } from 'react';
 
 interface AudioPlayerProps {
   previewUrl: string | undefined | null;
@@ -6,7 +6,7 @@ interface AudioPlayerProps {
   className?: string;
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ previewUrl, mini = false, className = '' }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = memo(({ previewUrl, mini = false, className = '' }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -82,7 +82,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ previewUrl, mini = false, cla
     };
   }, [previewUrl, retryCount]);
 
-  const togglePlay = async (e: React.MouseEvent) => {
+  const togglePlay = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     
     const audio = audioRef.current;
@@ -109,7 +109,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ previewUrl, mini = false, cla
         }
       }
     }
-  };
+  }, [previewUrl, isPlaying]);
 
   if (!previewUrl) return null;
 
@@ -142,6 +142,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ previewUrl, mini = false, cla
       </button>
     </div>
   );
-};
+});
+
+AudioPlayer.displayName = 'AudioPlayer';
 
 export default AudioPlayer;
