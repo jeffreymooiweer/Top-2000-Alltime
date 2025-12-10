@@ -15,8 +15,7 @@ const NewsFeed: React.FC = () => {
     loadNews();
   }, []);
 
-  if (loading) return null; // Don't show anything while loading to prevent layout shift jumping
-  if (news.length === 0) return null;
+  if (news.length === 0 && !loading) return null;
 
   return (
     <section className="mb-8 animate-fade-in">
@@ -26,6 +25,15 @@ const NewsFeed: React.FC = () => {
           NPO Radio 2 <span className="text-[#d00018]">Nieuws</span>  <span className="italic text-gray-800"> #TOP2000</span>
         </h3>
       </div>
+
+      {loading ? (
+        <div className="flex justify-center items-center py-20 px-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-[#d00018] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600 font-medium">Nieuws wordt geladen...</p>
+          </div>
+        </div>
+      ) : (
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 md:px-0">
         {news.map((item, idx) => (
@@ -69,6 +77,7 @@ const NewsFeed: React.FC = () => {
           </a>
         ))}
       </div>
+      )}
     </section>
   );
 };

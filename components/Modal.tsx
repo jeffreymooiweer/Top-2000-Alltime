@@ -281,11 +281,6 @@ const Modal: React.FC<ModalProps> = ({
                   ) : (
                     <p>{analysis}</p>
                   )}
-                  <div className="absolute top-0 right-0 p-2 opacity-5">
-                    <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" />
-                    </svg>
-                  </div>
                   <p className="text-[10px] text-gray-400 mt-4 text-right">
                     Analyse gegenereerd met Groq (llama-3.1-8b-instant)
                   </p>
