@@ -3,6 +3,13 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { SongData } from './types';
 import { scrapeWikipediaData } from './services/wikipediaService'; 
 import { prefetchMetadata } from './services/itunesService';
+import { 
+  isAuthenticated as isSpotifyAuthenticated, 
+  initiateAuth as initiateSpotifyAuth,
+  handleAuthCallback as handleSpotifyAuthCallback,
+  createPlaylistFromSongs,
+  logout as spotifyLogout
+} from './services/spotifyService';
 import Modal from './components/Modal';
 import SongCard from './components/SongCard';
 import NewsFeed from './components/NewsFeed';
@@ -46,6 +53,11 @@ const App: React.FC = () => {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   
+  // Spotify State
+  const [isSpotifyAuthenticating, setIsSpotifyAuthenticating] = useState(false);
+  const [spotifyProgress, setSpotifyProgress] = useState<{ current: number; total: number } | null>(null);
+  const [spotifyResult, setSpotifyResult] = useState<{ success: boolean; playlistUrl?: string; foundTracks: number; totalTracks: number } | null>(null);
+  
   // Year Selection State: 'all-time' or a specific year string like '2023'
   const [selectedYear, setSelectedYear] = useState<string>('all-time');
   
@@ -54,6 +66,19 @@ const App: React.FC = () => {
   const observerTarget = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
+  // Handle Spotify OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('code')) {
+      handleSpotifyAuthCallback().then(success => {
+        if (success) {
+          // User authenticated, can now create playlist
+          // Don't auto-create, let user click button again
+        }
+      });
+    }
+  }, []);
+
   // Initialize Data
   useEffect(() => {
     const initData = async () => {
@@ -296,6 +321,43 @@ const App: React.FC = () => {
       setIsDownloadOpen(false);
   };
 
+  const handleSaveToSpotify = async () => {
+    setIsDownloadOpen(false);
+    setSpotifyResult(null);
+    
+    // Check if authenticated
+    if (!isSpotifyAuthenticated()) {
+      setIsSpotifyAuthenticating(true);
+      await initiateSpotifyAuth();
+      return;
+    }
+    
+    // Create playlist
+    setIsSpotifyAuthenticating(true);
+    setSpotifyProgress({ current: 0, total: processedSongs.length });
+    
+    const playlistName = selectedYear === 'all-time' 
+      ? `NPO Radio 2 Top 2000 - Allertijden`
+      : `NPO Radio 2 Top 2000 - ${selectedYear}`;
+    
+    const result = await createPlaylistFromSongs(
+      processedSongs.map(s => ({ artist: s.artist, title: s.title })),
+      playlistName,
+      (current, total) => setSpotifyProgress({ current, total })
+    );
+    
+    setIsSpotifyAuthenticating(false);
+    setSpotifyProgress(null);
+    setSpotifyResult(result);
+    
+    if (result.success && result.playlistUrl) {
+      // Open playlist in new tab after a short delay
+      setTimeout(() => {
+        window.open(result.playlistUrl, '_blank');
+      }, 1000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f3f4f6] font-sans">
       
@@ -396,7 +458,7 @@ const App: React.FC = () => {
                          
                          {/* Download Menu Dropdown */}
                          {isDownloadOpen && (
-                             <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5">
+                             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5 z-50">
                                  <button onClick={() => downloadDummy('Excel')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
                                      <div className="w-6 h-6 bg-green-700 text-white flex items-center justify-center rounded text-xs font-bold">X</div>
                                      <span className="font-medium">Download Excel</span>
@@ -404,6 +466,16 @@ const App: React.FC = () => {
                                  <button onClick={() => downloadDummy('PDF')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
                                      <div className="w-6 h-6 bg-red-700 text-white flex items-center justify-center rounded text-xs font-bold">PDF</div>
                                      <span className="font-medium">Download PDF</span>
+                                 </button>
+                                 <button 
+                                   onClick={handleSaveToSpotify} 
+                                   disabled={isSpotifyAuthenticating || processedSongs.length === 0}
+                                   className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                 >
+                                     <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
+                                       <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+                                     </svg>
+                                     <span className="font-medium">Opslaan naar Spotify</span>
                                  </button>
                              </div>
                          )}
@@ -562,6 +634,86 @@ const App: React.FC = () => {
            </div>
            <p>© 2024 NPO Radio 2. Allertijden Calculator.</p>
       </footer>
+
+      {/* Spotify Progress Modal */}
+      {isSpotifyAuthenticating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Afspeellijst aanmaken...</h3>
+              {spotifyProgress && (
+                <p className="text-gray-600 mb-4">
+                  Zoeken naar nummers: {spotifyProgress.current} van {spotifyProgress.total}
+                </p>
+              )}
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+                {spotifyProgress && (
+                  <div 
+                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(spotifyProgress.current / spotifyProgress.total) * 100}%` }}
+                  ></div>
+                )}
+              </div>
+              <p className="text-sm text-gray-500">Dit kan even duren...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Spotify Result Modal */}
+      {spotifyResult && !isSpotifyAuthenticating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setSpotifyResult(null)}>
+          <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center">
+              {spotifyResult.success ? (
+                <>
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Afspeellijst aangemaakt!</h3>
+                  <p className="text-gray-600 mb-4">
+                    {spotifyResult.foundTracks} van {spotifyResult.totalTracks} nummers gevonden en toegevoegd.
+                  </p>
+                  {spotifyResult.playlistUrl && (
+                    <a
+                      href={spotifyResult.playlistUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block bg-green-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-600 transition mb-4"
+                    >
+                      Open in Spotify
+                    </a>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Fout opgetreden</h3>
+                  <p className="text-gray-600 mb-4">
+                    {spotifyResult.foundTracks === 0 
+                      ? 'Geen nummers gevonden op Spotify. Controleer of je bent ingelogd.'
+                      : `Kon afspeellijst niet aanmaken. ${spotifyResult.foundTracks} nummers gevonden.`
+                    }
+                  </p>
+                </>
+              )}
+              <button
+                onClick={() => setSpotifyResult(null)}
+                className="text-gray-500 hover:text-gray-700 underline text-sm"
+              >
+                Sluiten
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedSong && (
         <Modal 
