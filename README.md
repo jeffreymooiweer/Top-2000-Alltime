@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/NPO_Radio_2_Top_2000_logo.png" alt="NPO Radio 2 Top 2000 Logo" width="400"/>
+</div>
+
 # Top 2000 Allertijden
 
 Een interactieve webapplicatie die de NPO Radio 2 Top 2000 Allertijden berekent en visualiseert op basis van historische noteringen. De applicatie haalt data op van Wikipedia en berekent automatisch de allertijden-lijst op basis van een puntensysteem.
