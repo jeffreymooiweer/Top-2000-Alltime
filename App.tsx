@@ -128,7 +128,10 @@ const App: React.FC = () => {
     
     // Spotify callback
     if (hash.includes('spotify-callback')) {
-      const params = new URLSearchParams(hash.substring(1));
+      // Extract query string from hash (format: #spotify-callback?code=...&state=...)
+      const hashParts = hash.split('?');
+      const queryString = hashParts.length > 1 ? hashParts[1] : '';
+      const params = new URLSearchParams(queryString);
       const code = params.get('code');
       const error = params.get('error');
       
@@ -170,8 +173,21 @@ const App: React.FC = () => {
     }
     
     // Deezer callback
-    if (hash.includes('deezer-callback')) {
-      const params = new URLSearchParams(hash.substring(1));
+    if (hash.includes('deezer-callback') || hash.includes('access_token')) {
+      // Deezer uses implicit flow - token is in hash fragment
+      // Format could be: #deezer-callback#access_token=... or #access_token=...
+      // Find the part with access_token or error
+      const hashParts = hash.split('#').filter(Boolean);
+      let queryString = hash.substring(1); // Default to entire hash without #
+      
+      for (const part of hashParts) {
+        if (part.includes('access_token') || part.includes('error_reason')) {
+          queryString = part;
+          break;
+        }
+      }
+      
+      const params = new URLSearchParams(queryString);
       const accessToken = params.get('access_token');
       const expires = params.get('expires');
       const error = params.get('error_reason');
@@ -211,7 +227,10 @@ const App: React.FC = () => {
     
     // YouTube callback
     if (hash.includes('youtube-callback')) {
-      const params = new URLSearchParams(hash.substring(1));
+      // Extract query string from hash (format: #youtube-callback?code=...&state=...)
+      const hashParts = hash.split('?');
+      const queryString = hashParts.length > 1 ? hashParts[1] : '';
+      const params = new URLSearchParams(queryString);
       const code = params.get('code');
       const error = params.get('error');
       

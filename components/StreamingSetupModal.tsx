@@ -91,8 +91,6 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
             'Log in met je Spotify account',
             'Klik op "Create app"',
             'Vul de app details in (naam, beschrijving)',
-            'Voeg deze Redirect URI toe:',
-            `${window.location.origin}${window.location.pathname}#spotify-callback`,
             'Kopieer je Client ID en plak deze hieronder',
           ],
         };
@@ -106,8 +104,6 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
             'Log in met je Deezer account',
             'Klik op "Create a new Application"',
             'Vul de app details in',
-            'Voeg deze Redirect URI toe:',
-            `${window.location.origin}${window.location.pathname}#deezer-callback`,
             'Kopieer je Application ID en plak deze hieronder',
           ],
         };
@@ -122,8 +118,6 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
             'Ga naar "APIs & Services" > "Credentials"',
             'Klik op "Create Credentials" > "OAuth client ID"',
             'Selecteer "Web application"',
-            'Voeg deze Redirect URI toe:',
-            `${window.location.origin}${window.location.pathname}#youtube-callback`,
             'Zorg dat YouTube Data API v3 is ingeschakeld',
             'Kopieer je Client ID en plak deze hieronder',
           ],
@@ -203,15 +197,13 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
                       </li>
                     );
                   }
+                  // Skip the redirect URL instruction since we show it separately
+                  if (instruction.startsWith('http') && instruction.includes('callback')) {
+                    return null;
+                  }
                   return (
                     <li key={idx} className="mb-2">
-                      {instruction.startsWith('http') ? (
-                        <div className="mt-1 bg-gray-100 p-2 rounded font-mono text-xs break-all">
-                          {instruction}
-                        </div>
-                      ) : (
-                        instruction
-                      )}
+                      {instruction}
                     </li>
                   );
                 })}
@@ -242,21 +234,6 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
                   placeholder={service === 'deezer' ? 'Je Deezer Application ID' : `Je ${info.name} Client ID`}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#d00018] focus:border-transparent"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Redirect URL
-                </label>
-                <input
-                  type="text"
-                  value={redirectUrl}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 font-mono text-xs"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Deze URL moet worden toegevoegd aan je {service === 'deezer' ? 'Application' : 'OAuth App'} settings.
-                </p>
               </div>
             </div>
 
