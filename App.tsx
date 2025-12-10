@@ -77,6 +77,51 @@ const App: React.FC = () => {
   const observerTarget = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Generate available years list based on data
+  const availableYears = useMemo(() => {
+    if (songs.length === 0) return [];
+    const years = Object.keys(songs[0].rankings)
+        .filter(k => !isNaN(parseInt(k)))
+        .sort((a, b) => parseInt(b) - parseInt(a));
+    return years;
+  }, [songs]);
+
+  // Filter and Sort Songs based on Search AND Selected Year
+  const processedSongs = useMemo(() => {
+    let result = [...songs];
+
+    // 1. Search Filter (using debounced query)
+    if (debouncedSearchQuery) {
+        const lowerQuery = debouncedSearchQuery.toLowerCase();
+        result = result.filter(s => 
+            s.title.toLowerCase().includes(lowerQuery) || 
+            s.artist.toLowerCase().includes(lowerQuery)
+        );
+    }
+
+    // 2. Year Filter & Sort
+    if (selectedYear !== 'all-time') {
+        result = result.filter(s => s.rankings[selectedYear] !== null && s.rankings[selectedYear] !== undefined);
+        result.sort((a, b) => {
+            const rankA = a.rankings[selectedYear] as number;
+            const rankB = b.rankings[selectedYear] as number;
+            return rankA - rankB;
+        });
+    } else {
+        result.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+    }
+
+    return result;
+  }, [songs, debouncedSearchQuery, selectedYear]);
+  
   // Handle OAuth Callbacks
   useEffect(() => {
     const hash = window.location.hash;
@@ -231,155 +276,118 @@ const App: React.FC = () => {
         console.warn("Cache read error", e);
       }
 
-      setLoadingStatus("Top 2000 tabel downloaden en verwerken...");
-      const rawSongs = await scrapeWikipediaData();
-      
-      if (rawSongs.length === 0) {
-          setLoadingStatus("Fout: Kon geen data vinden op de Wikipedia pagina. Controleer console.");
-          return; 
-      }
-
-      setLoadingStatus(`Scores berekenen voor ${rawSongs.length} nummers...`);
-
-      // 1. Determine the effective data range
-      // We need to check if the latest year is "complete".
-      // If only the Top 10 is known for 2025, we must NOT include it in All-Time calc
-      // or it will unfairly boost those 10 songs by +2000 points.
-      let maxYear = 0;
-      let maxYearCount = 0;
-      
-      if (rawSongs.length > 0) {
-          const allYears = new Set<number>();
-          rawSongs.forEach(s => {
-             Object.keys(s.rankings).forEach(y => {
-                 const yInt = parseInt(y);
-                 if(!isNaN(yInt)) allYears.add(yInt);
-             });
-          });
-          
-          if (allYears.size > 0) {
-             maxYear = Math.max(...Array.from(allYears));
-             // Count how many songs actually have a ranking for this maxYear
-             maxYearCount = rawSongs.filter(s => s.rankings[maxYear.toString()] !== undefined && s.rankings[maxYear.toString()] !== null).length;
-          }
-      }
-
-      // Threshold: If fewer than 1500 songs are known for the year, treat it as partial/incomplete.
-      // Top 2000 should have... 2000.
-      const isLatestYearIncomplete = maxYearCount < 1500;
-      const effectiveAllTimeYear = isLatestYearIncomplete ? maxYear - 1 : maxYear;
-      
-      console.log(`Max Year found: ${maxYear} (${maxYearCount} entries). Using ${effectiveAllTimeYear} as cutoff for All-Time list.`);
-
-      // Calculate scores
-      let scoredSongs = rawSongs.map(song => {
-        // Calculate All-Time score up to the effective safe year
-        const totalScore = calculateAllTimeScore(song, effectiveAllTimeYear);
-        
-        // Calculate "Previous" score (One year before the effective year)
-        // This allows us to compare "2023 All Time" vs "2022 All Time" properly
-        const previousTotalScore = calculateAllTimeScore(song, effectiveAllTimeYear - 1);
-        
-        return {
-            ...song,
-            totalScore,
-            previousTotalScore, // Temporary field for sorting
-            coverUrl: undefined, 
-            previewUrl: undefined
-        };
-      });
-
-      // 1. Assign All-Time Ranks (Current Safe Year)
-      scoredSongs.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
-      scoredSongs = scoredSongs.map((song, index) => ({
-        ...song,
-        allTimeRank: index + 1
-      }));
-
-      // 2. Assign All-Time Ranks (Previous Safe Year)
-      // We sort by the score calculated for the year prior
-      const prevSorted = [...scoredSongs].sort((a, b) => (b.previousTotalScore || 0) - (a.previousTotalScore || 0));
-      
-      // Create a map to quickly look up the previous rank
-      const prevRankMap = new Map<string, number>();
-      prevSorted.forEach((song, index) => {
-          // Only assign a previous rank if they actually had points previously
-          if ((song.previousTotalScore || 0) > 0) {
-              prevRankMap.set(song.id, index + 1);
-          }
-      });
-
-      // Merge back into main array and cleanup temporary field
-      const finalSongs = scoredSongs.map(song => {
-          const { previousTotalScore, ...rest } = song; // Remove temp field
-          return {
-              ...rest,
-              previousAllTimeRank: prevRankMap.get(song.id) // undefined if new entry or 0 points previously
-          };
-      });
-
-      // Initial Sort is already done (by totalScore)
-
       try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(finalSongs));
-        localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
-      } catch (e) {
-        console.warn("Cache write error", e);
-      }
+        setLoadingStatus("Top 2000 tabel downloaden en verwerken...");
+        const rawSongs = await scrapeWikipediaData();
+        
+        if (rawSongs.length === 0) {
+            setLoadingStatus("Fout: Kon geen data vinden op de Wikipedia pagina. Controleer console.");
+            setLoading(false);
+            return; 
+        }
 
-      setSongs(finalSongs);
-      setLoading(false);
-      // Trigger background prefetch for TOP 50 only
-      prefetchMetadata(finalSongs.slice(0, 50));
+        setLoadingStatus(`Scores berekenen voor ${rawSongs.length} nummers...`);
+
+        // 1. Determine the effective data range
+        // We need to check if the latest year is "complete".
+        // If only the Top 10 is known for 2025, we must NOT include it in All-Time calc
+        // or it will unfairly boost those 10 songs by +2000 points.
+        let maxYear = 0;
+        let maxYearCount = 0;
+        
+        if (rawSongs.length > 0) {
+            const allYears = new Set<number>();
+            rawSongs.forEach(s => {
+               Object.keys(s.rankings).forEach(y => {
+                   const yInt = parseInt(y);
+                   if(!isNaN(yInt)) allYears.add(yInt);
+               });
+            });
+            
+            if (allYears.size > 0) {
+               maxYear = Math.max(...Array.from(allYears));
+               // Count how many songs actually have a ranking for this maxYear
+               maxYearCount = rawSongs.filter(s => s.rankings[maxYear.toString()] !== undefined && s.rankings[maxYear.toString()] !== null).length;
+            }
+        }
+
+        // Threshold: If fewer than 1500 songs are known for the year, treat it as partial/incomplete.
+        // Top 2000 should have... 2000.
+        const isLatestYearIncomplete = maxYearCount < 1500;
+        const effectiveAllTimeYear = isLatestYearIncomplete ? maxYear - 1 : maxYear;
+        
+        console.log(`Max Year found: ${maxYear} (${maxYearCount} entries). Using ${effectiveAllTimeYear} as cutoff for All-Time list.`);
+
+        // Calculate scores
+        let scoredSongs = rawSongs.map(song => {
+          // Calculate All-Time score up to the effective safe year
+          const totalScore = calculateAllTimeScore(song, effectiveAllTimeYear);
+          
+          // Calculate "Previous" score (One year before the effective year)
+          // This allows us to compare "2023 All Time" vs "2022 All Time" properly
+          const previousTotalScore = calculateAllTimeScore(song, effectiveAllTimeYear - 1);
+          
+          return {
+              ...song,
+              totalScore,
+              previousTotalScore, // Temporary field for sorting
+              coverUrl: undefined, 
+              previewUrl: undefined
+          };
+        });
+
+        // 1. Assign All-Time Ranks (Current Safe Year)
+        scoredSongs.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+        scoredSongs = scoredSongs.map((song, index) => ({
+          ...song,
+          allTimeRank: index + 1
+        }));
+
+        // 2. Assign All-Time Ranks (Previous Safe Year)
+        // We sort by the score calculated for the year prior
+        const prevSorted = [...scoredSongs].sort((a, b) => (b.previousTotalScore || 0) - (a.previousTotalScore || 0));
+        
+        // Create a map to quickly look up the previous rank
+        const prevRankMap = new Map<string, number>();
+        prevSorted.forEach((song, index) => {
+            // Only assign a previous rank if they actually had points previously
+            if ((song.previousTotalScore || 0) > 0) {
+                prevRankMap.set(song.id, index + 1);
+            }
+        });
+
+        // Merge back into main array and cleanup temporary field
+        const finalSongs = scoredSongs.map(song => {
+            const { previousTotalScore, ...rest } = song; // Remove temp field
+            return {
+                ...rest,
+                previousAllTimeRank: prevRankMap.get(song.id) // undefined if new entry or 0 points previously
+            };
+        });
+
+        // Initial Sort is already done (by totalScore)
+
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(finalSongs));
+          localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+        } catch (e) {
+          console.warn("Cache write error", e);
+        }
+
+        setSongs(finalSongs);
+        setLoading(false);
+        // Trigger background prefetch for TOP 50 only
+        prefetchMetadata(finalSongs.slice(0, 50));
+      } catch (error) {
+        console.error("Error initializing data:", error);
+        setLoadingStatus("Fout bij het laden van data. Probeer de pagina te vernieuwen.");
+        setLoading(false);
+      }
     };
 
     initData();
   }, []);
 
-  // Generate available years list based on data
-  const availableYears = useMemo(() => {
-    if (songs.length === 0) return [];
-    const years = Object.keys(songs[0].rankings)
-        .filter(k => !isNaN(parseInt(k)))
-        .sort((a, b) => parseInt(b) - parseInt(a));
-    return years;
-  }, [songs]);
-
-  // Filter and Sort Songs based on Search AND Selected Year
-  const processedSongs = useMemo(() => {
-    let result = [...songs];
-
-    // 1. Search Filter (using debounced query)
-    if (debouncedSearchQuery) {
-        const lowerQuery = debouncedSearchQuery.toLowerCase();
-        result = result.filter(s => 
-            s.title.toLowerCase().includes(lowerQuery) || 
-            s.artist.toLowerCase().includes(lowerQuery)
-        );
-    }
-
-    // 2. Year Filter & Sort
-    if (selectedYear !== 'all-time') {
-        result = result.filter(s => s.rankings[selectedYear] !== null && s.rankings[selectedYear] !== undefined);
-        result.sort((a, b) => {
-            const rankA = a.rankings[selectedYear] as number;
-            const rankB = b.rankings[selectedYear] as number;
-            return rankA - rankB;
-        });
-    } else {
-        result.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
-    }
-
-    return result;
-  }, [songs, debouncedSearchQuery, selectedYear]);
-
-  // Debounce search query
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   // Reset infinite scroll when filters change
   useEffect(() => {
