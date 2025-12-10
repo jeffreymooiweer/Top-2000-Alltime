@@ -277,25 +277,26 @@ const App: React.FC = () => {
       }
     }
     
-    // YouTube callback
-    if (hash.includes('youtube-callback')) {
-      // Extract query string from hash (format: #youtube-callback?code=...&state=...)
-      const hashParts = hash.split('?');
-      const queryString = hashParts.length > 1 ? hashParts[1] : '';
-      const params = new URLSearchParams(queryString);
-      const code = params.get('code');
-      const error = params.get('error');
-      
-      if (error) {
-        alert(`YouTube authenticatie mislukt: ${error}`);
-        window.location.hash = '';
+    // YouTube callback - Google OAuth uses query parameters, not hash fragments
+    const youtubeCode = searchParams.get('code');
+    const youtubeError = searchParams.get('error');
+    const youtubeState = searchParams.get('state');
+    
+    // Check if this is a YouTube callback (either via query param or hash for backwards compatibility)
+    if (youtubeCode || youtubeError || hash.includes('youtube-callback')) {
+      // For Google OAuth, code comes via query parameters
+      if (youtubeError) {
+        alert(`YouTube authenticatie mislukt: ${youtubeError}`);
+        // Clean up URL
+        window.history.replaceState(null, '', window.location.pathname);
         return;
       }
       
-      if (code) {
-        handleYouTubeCallback(code)
+      if (youtubeCode) {
+        handleYouTubeCallback(youtubeCode)
           .then(async () => {
-            window.location.hash = '';
+            // Clean up URL - remove query parameters
+            window.history.replaceState(null, '', window.location.pathname);
             setStreamingSetupService(null);
             
             // Automatically create playlist after successful authentication
@@ -318,8 +319,51 @@ const App: React.FC = () => {
           })
           .catch((err) => {
             alert(`Fout bij koppelen: ${err.message}`);
-            window.location.hash = '';
+            // Clean up URL
+            window.history.replaceState(null, '', window.location.pathname);
           });
+      } else if (hash.includes('youtube-callback')) {
+        // Backwards compatibility: handle old hash-based callback
+        const hashParts = hash.split('?');
+        const queryString = hashParts.length > 1 ? hashParts[1] : '';
+        const params = new URLSearchParams(queryString);
+        const code = params.get('code');
+        const error = params.get('error');
+        
+        if (error) {
+          alert(`YouTube authenticatie mislukt: ${error}`);
+          window.location.hash = '';
+          return;
+        }
+        
+        if (code) {
+          handleYouTubeCallback(code)
+            .then(async () => {
+              window.location.hash = '';
+              setStreamingSetupService(null);
+              
+              if (processedSongs.length > 0) {
+                setIsCreatingPlaylist(true);
+                try {
+                  const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
+                  const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
+                  const playlistUrl = await createYouTubePlaylist(processedSongs, playlistName);
+                  alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
+                  window.open(playlistUrl, '_blank');
+                } catch (error: any) {
+                  alert(`Fout bij aanmaken playlist: ${error.message}`);
+                } finally {
+                  setIsCreatingPlaylist(false);
+                }
+              } else {
+                alert('YouTube account succesvol gekoppeld! Je kunt nu een playlist aanmaken via het download menu.');
+              }
+            })
+            .catch((err) => {
+              alert(`Fout bij koppelen: ${err.message}`);
+              window.location.hash = '';
+            });
+        }
       }
     }
   }, [processedSongs, selectedYear]);
