@@ -621,18 +621,18 @@ const App: React.FC = () => {
                                      Download als
                                  </div>
                                  <button onClick={() => handleDownload('Excel')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                     <img src="/Image/Xls.png" alt="Excel" className="w-6 h-6 object-contain" />
+                                     <img src={`${import.meta.env.BASE_URL}Image/Xls.png`} alt="Excel" className="w-6 h-6 object-contain" />
                                      <span className="font-medium">Excel</span>
                                  </button>
                                  <button onClick={() => handleDownload('PDF')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <img src="/Image/pdf.png" alt="PDF" className="w-6 h-6 object-contain" />
+                                     <img src={`${import.meta.env.BASE_URL}Image/pdf.png`} alt="PDF" className="w-6 h-6 object-contain" />
                                      <span className="font-medium">PDF</span>
                                  </button>
                                  <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-1">
                                      Afspeellijst
                                  </div>
                                  <button onClick={() => handleDownload('Spotify')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                     <img src="/Image/spotify.png" alt="Spotify" className="w-6 h-6 object-contain" />
+                                     <img src={`${import.meta.env.BASE_URL}Image/spotify.png`} alt="Spotify" className="w-6 h-6 object-contain" />
                                      <div className="flex-1 flex items-center justify-between">
                                        <span className="font-medium">Spotify</span>
                                        {isSpotifyAuthenticated() && (
@@ -641,7 +641,7 @@ const App: React.FC = () => {
                                      </div>
                                  </button>
                                  <button onClick={() => handleDownload('Deezer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <img src="/Image/deezer.png" alt="Deezer" className="w-6 h-6 object-contain" />
+                                     <img src={`${import.meta.env.BASE_URL}Image/deezer.png`} alt="Deezer" className="w-6 h-6 object-contain" />
                                      <div className="flex-1 flex items-center justify-between">
                                        <span className="font-medium">Deezer</span>
                                        {isDeezerAuthenticated() && (
@@ -650,7 +650,7 @@ const App: React.FC = () => {
                                      </div>
                                  </button>
                                  <button onClick={() => handleDownload('YouTube Music')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <img src="/Image/play.png" alt="YouTube Music" className="w-6 h-6 object-contain" />
+                                     <img src={`${import.meta.env.BASE_URL}Image/play.png`} alt="YouTube Music" className="w-6 h-6 object-contain" />
                                      <div className="flex-1 flex items-center justify-between">
                                        <span className="font-medium">YouTube Music</span>
                                        {isYouTubeAuthenticated() && (
