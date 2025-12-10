@@ -3,6 +3,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { SongData } from './types';
 import { scrapeWikipediaData } from './services/wikipediaService'; 
 import { prefetchMetadata } from './services/itunesService';
+import { exportToExcel, exportToPDF, exportToSpotify, exportToDeezer, exportToYouTubeMusic } from './services/exportService';
 import Modal from './components/Modal';
 import SongCard from './components/SongCard';
 import NewsFeed from './components/NewsFeed';
@@ -291,9 +292,32 @@ const App: React.FC = () => {
   const toggleShare = () => { setIsShareOpen(!isShareOpen); setIsDownloadOpen(false); };
   const toggleDownload = () => { setIsDownloadOpen(!isDownloadOpen); setIsShareOpen(false); };
 
-  const downloadDummy = (type: string) => {
-      alert(`Download ${type} is gestart! (Simulatie)`);
+  const handleDownload = (type: string) => {
+    try {
+      switch (type) {
+        case 'Excel':
+          exportToExcel(processedSongs, selectedYear);
+          break;
+        case 'PDF':
+          exportToPDF(processedSongs, selectedYear);
+          break;
+        case 'Spotify':
+          exportToSpotify(processedSongs);
+          break;
+        case 'Deezer':
+          exportToDeezer(processedSongs);
+          break;
+        case 'YouTube Music':
+          exportToYouTubeMusic(processedSongs);
+          break;
+        default:
+          console.warn(`Unknown export type: ${type}`);
+      }
       setIsDownloadOpen(false);
+    } catch (error) {
+      console.error(`Error exporting ${type}:`, error);
+      alert(`Er is een fout opgetreden bij het exporteren naar ${type}. Probeer het opnieuw.`);
+    }
   };
 
   return (
@@ -396,14 +420,32 @@ const App: React.FC = () => {
                          
                          {/* Download Menu Dropdown */}
                          {isDownloadOpen && (
-                             <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5">
-                                 <button onClick={() => downloadDummy('Excel')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
+                             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5 z-50">
+                                 <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                                     Download als
+                                 </div>
+                                 <button onClick={() => handleDownload('Excel')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
                                      <div className="w-6 h-6 bg-green-700 text-white flex items-center justify-center rounded text-xs font-bold">X</div>
-                                     <span className="font-medium">Download Excel</span>
+                                     <span className="font-medium">Excel</span>
                                  </button>
-                                 <button onClick={() => downloadDummy('PDF')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
+                                 <button onClick={() => handleDownload('PDF')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
                                      <div className="w-6 h-6 bg-red-700 text-white flex items-center justify-center rounded text-xs font-bold">PDF</div>
-                                     <span className="font-medium">Download PDF</span>
+                                     <span className="font-medium">PDF</span>
+                                 </button>
+                                 <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-1">
+                                     Afspeellijst
+                                 </div>
+                                 <button onClick={() => handleDownload('Spotify')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
+                                     <div className="w-6 h-6 bg-[#1DB954] text-white flex items-center justify-center rounded text-xs font-bold">♪</div>
+                                     <span className="font-medium">Spotify</span>
+                                 </button>
+                                 <button onClick={() => handleDownload('Deezer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
+                                     <div className="w-6 h-6 bg-[#FEAA2D] text-white flex items-center justify-center rounded text-xs font-bold">D</div>
+                                     <span className="font-medium">Deezer</span>
+                                 </button>
+                                 <button onClick={() => handleDownload('YouTube Music')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
+                                     <div className="w-6 h-6 bg-[#FF0000] text-white flex items-center justify-center rounded text-xs font-bold">YT</div>
+                                     <span className="font-medium">YouTube Music</span>
                                  </button>
                              </div>
                          )}
