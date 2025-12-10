@@ -11,7 +11,7 @@ interface StreamingConfig {
 }
 
 // Helper to get consistent redirect URI
-const getRedirectUri = (callbackHash: string): string => {
+const getRedirectUri = (callbackHash: string, useQueryParam: boolean = false): string => {
   // Use base path from vite config or derive from current pathname
   let basePath = import.meta.env.BASE_URL;
   
@@ -33,7 +33,18 @@ const getRedirectUri = (callbackHash: string): string => {
   
   // Remove trailing slash from origin to avoid double slashes
   const origin = window.location.origin.replace(/\/$/, '');
-  // Ensure callbackHash starts with # (it should already, but be safe)
+  
+  // For Google OAuth (YouTube), use query parameter instead of hash
+  // Google doesn't accept hash fragments in redirect URIs
+  if (useQueryParam) {
+    // Extract callback name from hash format (e.g., '#youtube-callback' -> 'youtube-callback')
+    const callbackName = callbackHash.startsWith('#') ? callbackHash.substring(1) : callbackHash;
+    // For Google OAuth, we use the base URL without any callback identifier
+    // The callback will be detected via query parameters
+    return `${origin}${basePath}`.replace(/\/$/, '') || `${origin}/`;
+  }
+  
+  // For other services (Spotify, Deezer), use hash fragment
   const hash = callbackHash.startsWith('#') ? callbackHash : `#${callbackHash}`;
   return `${origin}${basePath}${hash}`;
 };
@@ -656,7 +667,8 @@ export const initiateYouTubeAuth = async (): Promise<void> => {
   
   sessionStorage.setItem('youtube_code_verifier', codeVerifier);
 
-  const redirectUri = getRedirectUri('#youtube-callback');
+  // For Google OAuth, use query parameter instead of hash (Google doesn't accept hash in redirect URIs)
+  const redirectUri = getRedirectUri('#youtube-callback', true);
   const scopes = 'https://www.googleapis.com/auth/youtube.force-ssl';
   
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -683,7 +695,8 @@ export const handleYouTubeCallback = async (code: string): Promise<void> => {
     throw new Error('Code verifier niet gevonden');
   }
 
-  const redirectUri = getRedirectUri('#youtube-callback');
+  // For Google OAuth, use query parameter instead of hash (must match redirect URI used in auth)
+  const redirectUri = getRedirectUri('#youtube-callback', true);
 
   // Exchange code for token
   const response = await fetch('https://oauth2.googleapis.com/token', {

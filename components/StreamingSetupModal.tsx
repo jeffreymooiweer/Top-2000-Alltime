@@ -21,7 +21,7 @@ interface StreamingSetupModalProps {
 }
 
 // Helper to get consistent redirect URI (same as in streamingService)
-const getRedirectUri = (callbackHash: string): string => {
+const getRedirectUri = (callbackHash: string, useQueryParam: boolean = false): string => {
   let basePath = import.meta.env.BASE_URL;
   
   if (!basePath || basePath === '/') {
@@ -37,13 +37,23 @@ const getRedirectUri = (callbackHash: string): string => {
   }
   
   const origin = window.location.origin.replace(/\/$/, '');
+  
+  // For Google OAuth (YouTube), use base URL without hash (Google doesn't accept hash in redirect URIs)
+  if (useQueryParam) {
+    return `${origin}${basePath}`.replace(/\/$/, '') || `${origin}/`;
+  }
+  
+  // For other services (Spotify, Deezer), use hash fragment
   const hash = callbackHash.startsWith('#') ? callbackHash : `#${callbackHash}`;
   return `${origin}${basePath}${hash}`;
 };
 
 const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service, onClose, onAuthenticated }) => {
   const [clientId, setClientId] = useState('');
-  const [redirectUrl] = useState(getRedirectUri(`#${service}-callback`));
+  const [redirectUrl] = useState(() => {
+    // For YouTube, use query parameter approach (Google doesn't accept hash in redirect URIs)
+    return getRedirectUri(`#${service}-callback`, service === 'youtube');
+  });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -132,13 +142,14 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
         return {
           name: 'YouTube Music',
           developerUrl: 'https://console.cloud.google.com/apis/credentials',
-          redirectUrl: getRedirectUri('#youtube-callback'),
+          redirectUrl: getRedirectUri('#youtube-callback', true),
           instructions: [
             'Ga naar https://console.cloud.google.com/',
             'Maak een nieuw project of selecteer een bestaand project',
             'Ga naar "APIs & Services" > "Credentials"',
             'Klik op "Create Credentials" > "OAuth client ID"',
             'Selecteer "Web application"',
+            'Voeg de Redirect URI toe (zie hieronder) - ZONDER hashtag',
             'Zorg dat YouTube Data API v3 is ingeschakeld',
             'Kopieer je Client ID en plak deze hieronder',
           ],
@@ -239,6 +250,11 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
               </p>
               <p className="text-xs text-yellow-700 mt-2">
                 Kopieer deze URL en voeg deze toe aan je {service === 'deezer' ? 'Application' : 'OAuth App'} settings.
+                {service === 'youtube' && (
+                  <span className="block mt-1 font-bold text-yellow-900">
+                    ⚠️ Belangrijk: Gebruik deze URL ZONDER hashtag (#) in Google Console!
+                  </span>
+                )}
               </p>
             </div>
 

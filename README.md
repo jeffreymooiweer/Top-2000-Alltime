@@ -112,11 +112,14 @@ Om de streamingdienst integratie te gebruiken, moet je eerst een OAuth app aanma
 2. Maak een nieuw project aan of selecteer een bestaand project
 3. Schakel YouTube Data API v3 in
 4. Maak OAuth 2.0 credentials aan (Web application)
-5. Voeg deze redirect URI toe: `https://jouw-domein.nl/path#youtube-callback`
+5. Voeg deze redirect URI toe: `https://jouw-domein.nl/path` (ZONDER hashtag!)
 6. Kopieer je Client ID
 7. Voer de Client ID in via de setup modal in de applicatie
 
-**Belangrijk**: Zorg ervoor dat je redirect URI exact overeenkomt met de URL die in de setup modal wordt getoond.
+**Belangrijk**: 
+- Google accepteert GEEN hashtag (#) in redirect URIs
+- Gebruik de exacte URL die in de setup modal wordt getoond (zonder hashtag)
+- De callback wordt automatisch afgehandeld via query parameters
 
 ## 📊 Data Bronnen
 
