@@ -17,6 +17,7 @@ import {
   isSpotifyAuthenticated,
   isDeezerAuthenticated,
   isYouTubeAuthenticated,
+  SpotifyPlaylistResult,
 } from './services/streamingService';
 import SongCard from './components/SongCard';
 import NewsFeed from './components/NewsFeed';
@@ -68,6 +69,8 @@ const App: React.FC = () => {
   // Streaming Setup State
   const [streamingSetupService, setStreamingSetupService] = useState<'spotify' | 'deezer' | 'youtube' | null>(null);
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
+  const [playlistProgress, setPlaylistProgress] = useState({ current: 0, total: 0 });
+  const [playlistResult, setPlaylistResult] = useState<{ playlistUrl: string; addedCount: number; failedSongs: Array<{ title: string; artist: string }> } | null>(null);
   
   // Year Selection State: 'all-time' or a specific year string like '2023'
   const [selectedYear, setSelectedYear] = useState<string>('all-time');
@@ -601,27 +604,36 @@ const App: React.FC = () => {
 
     // Create playlist
     setIsCreatingPlaylist(true);
+    setPlaylistProgress({ current: 0, total: processedSongs.length });
+    setPlaylistResult(null);
     setIsDownloadOpen(false);
 
     try {
       const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
       const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
       
-      let playlistUrl: string;
       if (service === 'spotify') {
-        playlistUrl = await createSpotifyPlaylist(processedSongs, playlistName);
-      } else if (service === 'deezer') {
-        playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
+        const result = await createSpotifyPlaylist(
+          processedSongs, 
+          playlistName,
+          (current, total) => setPlaylistProgress({ current, total })
+        );
+        setPlaylistResult(result);
+        // Don't close modal yet - show result modal instead
       } else {
-        playlistUrl = await createYouTubePlaylist(processedSongs, playlistName);
+        let playlistUrl: string;
+        if (service === 'deezer') {
+          playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
+        } else {
+          playlistUrl = await createYouTubePlaylist(processedSongs, playlistName);
+        }
+        setIsCreatingPlaylist(false);
+        alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
+        window.open(playlistUrl, '_blank');
       }
-
-      alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
-      window.open(playlistUrl, '_blank');
     } catch (error: any) {
-      alert(`Fout bij aanmaken playlist: ${error.message}`);
-    } finally {
       setIsCreatingPlaylist(false);
+      alert(`Fout bij aanmaken playlist: ${error.message}`);
     }
   };
 
@@ -972,12 +984,93 @@ const App: React.FC = () => {
         />
       )}
 
-      {isCreatingPlaylist && (
+      {isCreatingPlaylist && !playlistResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-xl p-8 max-w-md mx-4 text-center">
             <div className="w-12 h-12 border-4 border-[#d00018] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-lg font-bold text-gray-900">Playlist aanmaken...</p>
-            <p className="text-sm text-gray-600 mt-2">Dit kan even duren...</p>
+            <p className="text-sm text-gray-600 mt-2">
+              Nummer {playlistProgress.current} van {playlistProgress.total}
+            </p>
+            <div className="mt-4 w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-[#d00018] h-3 rounded-full transition-all duration-300"
+                style={{ width: `${(playlistProgress.current / playlistProgress.total) * 100}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {Math.round((playlistProgress.current / playlistProgress.total) * 100)}% voltooid
+            </p>
+          </div>
+        </div>
+      )}
+
+      {playlistResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Playlist aangemaakt!</h2>
+                <button
+                  onClick={() => {
+                    setPlaylistResult(null);
+                    setIsCreatingPlaylist(false);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="mb-6">
+                <p className="text-gray-700 mb-4">
+                  <strong>{playlistResult.addedCount}</strong> van <strong>{playlistProgress.total}</strong> nummers zijn toegevoegd aan de playlist.
+                </p>
+                {playlistResult.failedSongs.length > 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                    <p className="text-yellow-800 font-bold mb-2">
+                      {playlistResult.failedSongs.length} nummer(s) konden niet worden toegevoegd:
+                    </p>
+                    <div className="max-h-64 overflow-y-auto">
+                      <ul className="list-disc list-inside space-y-1 text-sm text-yellow-700">
+                        {playlistResult.failedSongs.map((song, idx) => (
+                          <li key={idx}>{song.artist} - {song.title}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+                {playlistResult.failedSongs.length === 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-green-800 font-bold">Alle nummers zijn succesvol toegevoegd! 🎉</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={() => {
+                  window.open(playlistResult.playlistUrl, '_blank');
+                }}
+                className="flex-1 bg-[#1DB954] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#1ed760] transition"
+              >
+                Open in Spotify
+              </button>
+              <button
+                onClick={() => {
+                  setPlaylistResult(null);
+                  setIsCreatingPlaylist(false);
+                }}
+                className="flex-1 bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-bold hover:bg-gray-300 transition"
+              >
+                Sluiten
+              </button>
+            </div>
           </div>
         </div>
       )}
