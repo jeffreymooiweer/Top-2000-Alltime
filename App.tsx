@@ -718,7 +718,7 @@ const App: React.FC = () => {
           </div>
       )}
 
-      <header className="bg-[#e60028] text-white shadow-lg sticky top-0 z-40">
+      <header className="bg-[#e60028] text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
                 <button className="text-white hover:bg-white/10 p-2 rounded transition" onClick={() => setIsMenuOpen(true)}>
@@ -779,6 +779,24 @@ const App: React.FC = () => {
         {/* RSS Feed Section */}
         {!debouncedSearchQuery && <NewsFeed />}
 
+        {/* Spotify Promo Button */}
+        {!debouncedSearchQuery && (
+            <div className="mb-8 px-4 md:px-0">
+                <a 
+                    href="https://open.spotify.com/playlist/0qE52uHy1zj2auhKBYlNoW?si=UR2tAD45T3yPQg0PXIR3-A&pi=TnRmU0ZKTpC1l"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
+                >
+                    <img 
+                        src={`${import.meta.env.BASE_URL}Image/listen-on-spotify.png`} 
+                        alt="Listen on Spotify" 
+                        className="w-full h-auto object-cover"
+                    />
+                </a>
+            </div>
+        )}
+
         {/* Main List Container */}
         <div className={`bg-gradient-to-b from-[#9a1a1a] to-[#2b0505] min-h-screen ${debouncedSearchQuery ? 'rounded-t-xl' : 'rounded-t-none'} overflow-visible shadow-2xl relative pb-10`}>
             
@@ -801,7 +819,7 @@ const App: React.FC = () => {
                          
                          {/* Download Menu Dropdown */}
                          {isDownloadOpen && (
-                             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5 z-50">
+                             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5 z-60">
                                  <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
                                      Download als
                                  </div>
