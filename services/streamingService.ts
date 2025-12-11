@@ -5,6 +5,7 @@ const STORAGE_PREFIX = 'top2000_streaming_';
 
 interface StreamingConfig {
   clientId: string;
+  clientSecret?: string;
   accessToken?: string;
   refreshToken?: string;
   expiresAt?: number;
@@ -709,6 +710,7 @@ export const handleYouTubeCallback = async (code: string): Promise<void> => {
       code,
       redirect_uri: redirectUri,
       client_id: config.clientId,
+      client_secret: config.clientSecret || '',
       code_verifier: codeVerifier,
     }),
   });
@@ -743,6 +745,7 @@ const refreshYouTubeToken = async (): Promise<string> => {
       grant_type: 'refresh_token',
       refresh_token: config.refreshToken,
       client_id: config.clientId!,
+      client_secret: config.clientSecret || '',
     }),
   });
 

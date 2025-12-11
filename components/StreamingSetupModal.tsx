@@ -50,6 +50,7 @@ const getRedirectUri = (callbackHash: string, useQueryParam: boolean = false): s
 
 const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service, onClose, onAuthenticated }) => {
   const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
   const [redirectUrl] = useState(() => {
     // For YouTube, use query parameter approach (Google doesn't accept hash in redirect URIs)
     return getRedirectUri(`#${service}-callback`, service === 'youtube');
@@ -79,6 +80,9 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
     if (config?.clientId) {
       setClientId(config.clientId);
     }
+    if (config?.clientSecret) {
+      setClientSecret(config.clientSecret);
+    }
   }, [service]);
 
   const handleAuthenticate = async () => {
@@ -93,7 +97,10 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
     } else if (service === 'deezer') {
       saveDeezerConfig({ clientId: clientId.trim() });
     } else {
-      saveYouTubeConfig({ clientId: clientId.trim() });
+      saveYouTubeConfig({ 
+        clientId: clientId.trim(),
+        clientSecret: clientSecret.trim()
+      });
     }
 
     // Then initiate authentication
@@ -151,7 +158,7 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
             'Selecteer "Web application"',
             'Voeg de Redirect URI toe (zie hieronder) - ZONDER hashtag',
             'Zorg dat YouTube Data API v3 is ingeschakeld',
-            'Kopieer je Client ID en plak deze hieronder',
+            'Kopieer je Client ID en Client Secret en plak deze hieronder',
           ],
         };
     }
@@ -272,6 +279,24 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#d00018] focus:border-transparent"
                 />
               </div>
+
+              {service === 'youtube' && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Client Secret
+                  </label>
+                  <input
+                    type="password"
+                    value={clientSecret}
+                    onChange={(e) => setClientSecret(e.target.value)}
+                    placeholder="Je YouTube Client Secret"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#d00018] focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Nodig voor authenticatie bij Google. Wordt lokaal in je browser opgeslagen.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Action Buttons */}
