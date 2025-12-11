@@ -345,7 +345,7 @@ const Modal: React.FC<ModalProps> = memo(({
                   <iframe 
                     width="100%" 
                     height="100%" 
-                    src={`https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(`Top 2000 a gogo ${song.artist} ${song.title}`)}`}
+                    src={`https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(`${song.artist} ${song.title} Top 2000`)}`}
                     title="YouTube video player" 
                     frameBorder="0" 
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
