@@ -809,14 +809,14 @@ const App: React.FC = () => {
         {/* RSS Feed Section */}
         {!debouncedSearchQuery && <NewsFeed />}
 
-        {/* Spotify Promo Button */}
+        {/* Promo Buttons Section */}
         {!debouncedSearchQuery && (
-            <div className="mb-8 px-4 md:px-0">
+            <div className="mb-8 px-4 md:px-0 flex flex-wrap gap-4">
                 <a 
                     href="https://open.spotify.com/playlist/0qE52uHy1zj2auhKBYlNoW?si=UR2tAD45T3yPQg0PXIR3-A&pi=TnRmU0ZKTpC1l"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
+                    className="block group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 w-48"
                 >
                     <img 
                         src={`${import.meta.env.BASE_URL}Image/listen-on-spotify.png`} 
