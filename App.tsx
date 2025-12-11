@@ -81,6 +81,36 @@ const App: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const spotifyCallbackProcessed = useRef(false);
   
+  // Refs for click-outside detection
+  const downloadButtonRef = useRef<HTMLButtonElement>(null);
+  const downloadDropdownRef = useRef<HTMLDivElement>(null);
+  const shareButtonRef = useRef<HTMLButtonElement>(null);
+  const shareDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as Node;
+        
+        if (isDownloadOpen && 
+            downloadButtonRef.current && !downloadButtonRef.current.contains(target) &&
+            downloadDropdownRef.current && !downloadDropdownRef.current.contains(target)) {
+            setIsDownloadOpen(false);
+        }
+        
+        if (isShareOpen && 
+            shareButtonRef.current && !shareButtonRef.current.contains(target) &&
+            shareDropdownRef.current && !shareDropdownRef.current.contains(target)) {
+            setIsShareOpen(false);
+        }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDownloadOpen, isShareOpen]);
+
   // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -811,6 +841,7 @@ const App: React.FC = () => {
                      <div className="flex gap-2 relative z-30">
                          {/* Download Button */}
                          <button 
+                            ref={downloadButtonRef}
                             onClick={toggleDownload} 
                             className={`p-2 rounded flex items-center justify-center transition backdrop-blur-sm border ${isDownloadOpen ? 'bg-white text-[#d00018] border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/30'}`}
                          >
@@ -819,7 +850,7 @@ const App: React.FC = () => {
                          
                          {/* Download Menu Dropdown */}
                          {isDownloadOpen && (
-                             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5 z-60">
+                             <div ref={downloadDropdownRef} className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5 z-60">
                                  <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
                                      Download als
                                  </div>
@@ -866,6 +897,7 @@ const App: React.FC = () => {
 
                          {/* Share Button */}
                          <button 
+                            ref={shareButtonRef}
                             onClick={toggleShare} 
                             className={`px-3 py-2 rounded flex items-center gap-2 font-bold text-sm transition backdrop-blur-sm border ${isShareOpen ? 'bg-white text-[#d00018] border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/30'}`}
                          >
@@ -875,7 +907,7 @@ const App: React.FC = () => {
 
                          {/* Share Menu Dropdown */}
                          {isShareOpen && (
-                             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5">
+                             <div ref={shareDropdownRef} className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5">
                                  <a 
                                     href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Check de Top 2000 Allertijden!")}`} 
                                     target="_blank" 
