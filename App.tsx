@@ -811,7 +811,7 @@ const App: React.FC = () => {
 
         {/* Promo Buttons Section */}
         {!debouncedSearchQuery && (
-            <div className="mb-8 px-4 md:px-0 flex flex-wrap gap-4">
+            <div className="mb-8 px-4 md:px-0 flex flex-wrap gap-4 justify-center">
                 <a 
                     href="https://open.spotify.com/playlist/0qE52uHy1zj2auhKBYlNoW?si=UR2tAD45T3yPQg0PXIR3-A&pi=TnRmU0ZKTpC1l"
                     target="_blank"
