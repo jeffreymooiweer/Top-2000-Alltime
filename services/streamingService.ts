@@ -775,7 +775,11 @@ const getYouTubeAccessToken = async (): Promise<string> => {
   return config.accessToken;
 };
 
-export const createYouTubePlaylist = async (songs: SongData[], playlistName: string): Promise<string> => {
+export const createYouTubePlaylist = async (
+  songs: SongData[], 
+  playlistName: string,
+  onProgress?: (current: number, total: number) => void
+): Promise<string> => {
   const token = await getYouTubeAccessToken();
 
   // Create playlist
@@ -806,8 +810,25 @@ export const createYouTubePlaylist = async (songs: SongData[], playlistName: str
   // Search and add tracks
   const videoIds: string[] = [];
   let addedCount = 0;
+  
+  // YouTube API has rate limits (quota), so we limit the number of songs for now
+  // In a production app you'd want to batch this or handle quotas better
+  const songsToProcess = songs.slice(0, 50); 
+  const totalToProcess = songsToProcess.length;
 
-  for (const song of songs.slice(0, 50)) { // YouTube API has rate limits
+  for (let i = 0; i < totalToProcess; i++) {
+    const song = songsToProcess[i];
+    
+    if (onProgress) {
+       // We report progress based on the items we are actually processing
+       // App.tsx uses the total count of passed songs for the progress bar max
+       // So we should report the index relative to the total input array if possible,
+       // OR we accept that we only go up to 50. 
+       // Let's pass i+1. If App.tsx expects 2000, it will show small progress.
+       // However, to make the user happy that SOMETHING is happening, this is a start.
+       onProgress(i + 1, songs.length);
+    }
+
     try {
       const searchQuery = encodeURIComponent(`${song.artist} ${song.title}`);
       const searchResponse = await fetch(

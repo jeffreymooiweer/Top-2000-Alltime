@@ -699,7 +699,11 @@ const App: React.FC = () => {
         if (service === 'deezer') {
           playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
         } else {
-          playlistUrl = await createYouTubePlaylist(processedSongs, playlistName);
+          playlistUrl = await createYouTubePlaylist(
+            processedSongs, 
+            playlistName,
+            (current, total) => setPlaylistProgress({ current, total })
+          );
         }
         setIsCreatingPlaylist(false);
         alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
