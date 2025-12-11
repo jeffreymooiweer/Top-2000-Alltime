@@ -131,7 +131,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = memo(({ previewUrl, mini = false
           mini 
           ? 'w-10 h-10' 
           : 'w-14 h-14'
-        } rounded-full bg-[#d00018] text-white flex items-center justify-center shadow-lg hover:bg-[#b00014] hover:scale-105 transition-all duration-200 z-30 ring-2 ring-white/20`}
+        } rounded-full bg-[#d00018] text-white flex items-center justify-center shadow-lg hover:bg-[#b00014] hover:scale-105 transition-all duration-200 z-10 ring-2 ring-white/20`}
         aria-label={isPlaying ? "Pauzeer" : "Afspelen"}
       >
         {isPlaying ? (

@@ -81,6 +81,36 @@ const App: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const spotifyCallbackProcessed = useRef(false);
   
+  // Refs for click-outside detection
+  const downloadButtonRef = useRef<HTMLButtonElement>(null);
+  const downloadDropdownRef = useRef<HTMLDivElement>(null);
+  const shareButtonRef = useRef<HTMLButtonElement>(null);
+  const shareDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Handle click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        const target = event.target as Node;
+        
+        if (isDownloadOpen && 
+            downloadButtonRef.current && !downloadButtonRef.current.contains(target) &&
+            downloadDropdownRef.current && !downloadDropdownRef.current.contains(target)) {
+            setIsDownloadOpen(false);
+        }
+        
+        if (isShareOpen && 
+            shareButtonRef.current && !shareButtonRef.current.contains(target) &&
+            shareDropdownRef.current && !shareDropdownRef.current.contains(target)) {
+            setIsShareOpen(false);
+        }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDownloadOpen, isShareOpen]);
+
   // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -718,7 +748,7 @@ const App: React.FC = () => {
           </div>
       )}
 
-      <header className="bg-[#e60028] text-white shadow-lg sticky top-0 z-40">
+      <header className="bg-[#e60028] text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
                 <button className="text-white hover:bg-white/10 p-2 rounded transition" onClick={() => setIsMenuOpen(true)}>
@@ -779,6 +809,24 @@ const App: React.FC = () => {
         {/* RSS Feed Section */}
         {!debouncedSearchQuery && <NewsFeed />}
 
+        {/* Spotify Promo Button */}
+        {!debouncedSearchQuery && (
+            <div className="mb-8 px-4 md:px-0">
+                <a 
+                    href="https://open.spotify.com/playlist/0qE52uHy1zj2auhKBYlNoW?si=UR2tAD45T3yPQg0PXIR3-A&pi=TnRmU0ZKTpC1l"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
+                >
+                    <img 
+                        src={`${import.meta.env.BASE_URL}Image/listen-on-spotify.png`} 
+                        alt="Listen on Spotify" 
+                        className="w-full h-auto object-cover"
+                    />
+                </a>
+            </div>
+        )}
+
         {/* Main List Container */}
         <div className={`bg-gradient-to-b from-[#9a1a1a] to-[#2b0505] min-h-screen ${debouncedSearchQuery ? 'rounded-t-xl' : 'rounded-t-none'} overflow-visible shadow-2xl relative pb-10`}>
             
@@ -793,6 +841,7 @@ const App: React.FC = () => {
                      <div className="flex gap-2 relative z-30">
                          {/* Download Button */}
                          <button 
+                            ref={downloadButtonRef}
                             onClick={toggleDownload} 
                             className={`p-2 rounded flex items-center justify-center transition backdrop-blur-sm border ${isDownloadOpen ? 'bg-white text-[#d00018] border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/30'}`}
                          >
@@ -801,7 +850,7 @@ const App: React.FC = () => {
                          
                          {/* Download Menu Dropdown */}
                          {isDownloadOpen && (
-                             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5 z-50">
+                             <div ref={downloadDropdownRef} className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5 z-60">
                                  <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
                                      Download als
                                  </div>
@@ -848,6 +897,7 @@ const App: React.FC = () => {
 
                          {/* Share Button */}
                          <button 
+                            ref={shareButtonRef}
                             onClick={toggleShare} 
                             className={`px-3 py-2 rounded flex items-center gap-2 font-bold text-sm transition backdrop-blur-sm border ${isShareOpen ? 'bg-white text-[#d00018] border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/30'}`}
                          >
@@ -857,7 +907,7 @@ const App: React.FC = () => {
 
                          {/* Share Menu Dropdown */}
                          {isShareOpen && (
-                             <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5">
+                             <div ref={shareDropdownRef} className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in-up origin-top-right ring-1 ring-black/5">
                                  <a 
                                     href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Check de Top 2000 Allertijden!")}`} 
                                     target="_blank" 
