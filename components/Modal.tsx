@@ -17,7 +17,7 @@ interface ModalProps {
   hasPrevious: boolean;
 }
 
-type Tab = 'overview' | 'lyrics';
+type Tab = 'overview' | 'video' | 'lyrics';
 
 // Sub-component for the "More from artist" list items
 const RelatedSongRow: React.FC<{ song: SongData; onClick: () => void }> = memo(({ song, onClick }) => {
@@ -95,6 +95,9 @@ const Modal: React.FC<ModalProps> = memo(({
   const [lyrics, setLyrics] = useState<string>('');
   const [loadingLyrics, setLoadingLyrics] = useState(false);
 
+  // Video State
+  const [loadingVideo, setLoadingVideo] = useState(true);
+
   // Prevent scrolling on body when modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -123,6 +126,7 @@ const Modal: React.FC<ModalProps> = memo(({
     setActiveTab('overview');
     setAnalysis('');
     setLyrics('');
+    setLoadingVideo(true);
     setLocalCover(song.coverUrl);
     setLocalPreview(song.previewUrl);
     
@@ -157,6 +161,12 @@ const Modal: React.FC<ModalProps> = memo(({
       fetchLyrics();
     }
   }, [activeTab, song.id, lyrics, loadingLyrics]);
+
+  useEffect(() => {
+    if (activeTab === 'video') {
+      setLoadingVideo(true);
+    }
+  }, [activeTab]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -245,6 +255,12 @@ const Modal: React.FC<ModalProps> = memo(({
             Overzicht
           </button>
           <button 
+            onClick={() => handleTabChange('video')}
+            className={`py-4 font-bold uppercase tracking-wider text-sm border-b-4 transition-colors ${activeTab === 'video' ? 'border-[#d00018] text-[#d00018]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+          >
+            Video
+          </button>
+          <button 
             onClick={() => handleTabChange('lyrics')}
             className={`py-4 font-bold uppercase tracking-wider text-sm border-b-4 transition-colors ${activeTab === 'lyrics' ? 'border-[#d00018] text-[#d00018]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
           >
@@ -254,7 +270,7 @@ const Modal: React.FC<ModalProps> = memo(({
 
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-gray-50">
-          {activeTab === 'overview' ? (
+          {activeTab === 'overview' && (
             <div className="space-y-8 animate-fade-in">
               {/* Chart Section */}
               <section>
@@ -313,7 +329,46 @@ const Modal: React.FC<ModalProps> = memo(({
                 </section>
               )}
             </div>
-          ) : (
+          )}
+
+          {activeTab === 'video' && (
+            <div className="animate-fade-in bg-white p-6 rounded-xl shadow-inner min-h-[300px] flex flex-col items-center">
+               <h4 className="font-bold text-lg mb-6 brand-font uppercase text-gray-400 self-start w-full text-center">
+                  Top 2000 a gogo
+                </h4>
+                <div className="w-full max-w-2xl aspect-video relative bg-black rounded-lg overflow-hidden shadow-lg">
+                  {loadingVideo && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 z-10">
+                      <div className="w-12 h-12 border-4 border-[#d00018] border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                  <iframe 
+                    width="100%" 
+                    height="100%" 
+                    src={`https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(`Top 2000 a gogo ${song.artist} ${song.title}`)}`}
+                    title="YouTube video player" 
+                    frameBorder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                    allowFullScreen
+                    onLoad={() => setLoadingVideo(false)}
+                    className="absolute inset-0 w-full h-full"
+                  ></iframe>
+                </div>
+                <div className="mt-4 text-center">
+                   <a 
+                     href="https://youtube.com/@top2000agogo" 
+                     target="_blank" 
+                     rel="noopener noreferrer"
+                     className="text-gray-500 hover:text-[#d00018] text-sm flex items-center justify-center gap-2 transition"
+                   >
+                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                     Bekijk meer op het Top 2000 a gogo kanaal
+                   </a>
+                </div>
+            </div>
+          )}
+
+          {activeTab === 'lyrics' && (
             <div className="animate-fade-in bg-white p-6 md:p-10 rounded-xl shadow-inner min-h-[300px]">
               {loadingLyrics ? (
                 <div className="flex justify-center items-center h-40">
