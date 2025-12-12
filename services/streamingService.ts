@@ -816,7 +816,7 @@ export const createYouTubePlaylist = async (
   
   // YouTube API has rate limits (quota), so we limit the number of songs for now
   // In a production app you'd want to batch this or handle quotas better
-  const songsToProcess = songs.slice(0, 50); 
+  const songsToProcess = songs; 
   const totalToProcess = songsToProcess.length;
 
   for (let i = 0; i < totalToProcess; i++) {
