@@ -777,6 +777,31 @@ const getYouTubeAccessToken = async (): Promise<string> => {
   return config.accessToken;
 };
 
+export const searchYouTubeVideo = async (artist: string, title: string): Promise<string | null> => {
+  try {
+    const token = await getYouTubeAccessToken();
+    const searchQuery = encodeURIComponent(`${artist} ${title}`);
+    const searchResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&maxResults=1`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (searchResponse.ok) {
+      const searchData = await searchResponse.json();
+      if (searchData.items && searchData.items.length > 0 && searchData.items[0].id?.videoId) {
+        return searchData.items[0].id.videoId;
+      }
+    }
+  } catch (e) {
+    console.warn('Error searching YouTube video:', e);
+  }
+  return null;
+};
+
 export const createYouTubePlaylist = async (
   songs: SongData[], 
   playlistName: string,
