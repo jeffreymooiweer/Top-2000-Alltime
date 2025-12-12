@@ -238,11 +238,13 @@ const getSpotifyAccessToken = async (): Promise<string> => {
   return config.accessToken;
 };
 
-export interface SpotifyPlaylistResult {
+export interface PlaylistResult {
   playlistUrl: string;
   addedCount: number;
   failedSongs: Array<{ title: string; artist: string }>;
 }
+
+export type SpotifyPlaylistResult = PlaylistResult;
 
 // Helper function to clean and normalize search strings
 const cleanSearchString = (str: string): string => {
@@ -779,7 +781,7 @@ export const createYouTubePlaylist = async (
   songs: SongData[], 
   playlistName: string,
   onProgress?: (current: number, total: number) => void
-): Promise<string> => {
+): Promise<PlaylistResult> => {
   const token = await getYouTubeAccessToken();
 
   // Create playlist
@@ -809,6 +811,7 @@ export const createYouTubePlaylist = async (
 
   // Search and add tracks
   const videoIds: string[] = [];
+  const failedSongs: Array<{ title: string; artist: string }> = [];
   let addedCount = 0;
   
   // YouTube API has rate limits (quota), so we limit the number of songs for now
@@ -820,12 +823,7 @@ export const createYouTubePlaylist = async (
     const song = songsToProcess[i];
     
     if (onProgress) {
-       // We report progress based on the items we are actually processing
-       // App.tsx uses the total count of passed songs for the progress bar max
-       // So we should report the index relative to the total input array if possible,
-       // OR we accept that we only go up to 50. 
-       // Let's pass i+1. If App.tsx expects 2000, it will show small progress.
-       // However, to make the user happy that SOMETHING is happening, this is a start.
+       // Report progress relative to total input array
        onProgress(i + 1, songs.length);
     }
 
@@ -842,43 +840,71 @@ export const createYouTubePlaylist = async (
 
       if (searchResponse.ok) {
         const searchData = await searchResponse.json();
-        if (searchData.items && searchData.items.length > 0) {
+        if (searchData.items && searchData.items.length > 0 && searchData.items[0].id?.videoId) {
           videoIds.push(searchData.items[0].id.videoId);
-          addedCount++;
+        } else {
+          console.warn(`Geen video gevonden voor: ${song.artist} - ${song.title}`);
+          failedSongs.push({ title: song.title, artist: song.artist });
         }
+      } else {
+        const errorText = await searchResponse.text();
+        console.warn(`YouTube search error for ${song.title}: ${errorText}`);
+        
+        // Check for quota exceeded
+        if (searchResponse.status === 403 && (errorText.includes('quota') || errorText.includes('limit'))) {
+           throw new Error('YouTube API quota overschreden. De limiet van Google is bereikt voor vandaag. Probeer het morgen opnieuw of gebruik Spotify/Deezer.');
+        }
+        
+        failedSongs.push({ title: song.title, artist: song.artist });
       }
-    } catch (e) {
+    } catch (e: any) {
+      // Re-throw if it's our quota error
+      if (e.message && e.message.includes('quota')) {
+        throw e;
+      }
       console.warn(`Kon ${song.title} niet vinden op YouTube:`, e);
+      failedSongs.push({ title: song.title, artist: song.artist });
     }
   }
 
   // Add videos to playlist
   if (videoIds.length > 0) {
     for (const videoId of videoIds) {
-      const addResponse = await fetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          snippet: {
-            playlistId: playlist.id,
-            resourceId: {
-              kind: 'youtube#video',
-              videoId: videoId,
-            },
+      try {
+        const addResponse = await fetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          body: JSON.stringify({
+            snippet: {
+              playlistId: playlist.id,
+              resourceId: {
+                kind: 'youtube#video',
+                videoId: videoId,
+              },
+            },
+          }),
+        });
 
-      if (!addResponse.ok) {
-        console.warn('Kon video niet toevoegen aan playlist');
+        if (addResponse.ok) {
+          addedCount++;
+        } else {
+          console.warn('Kon video niet toevoegen aan playlist');
+          // We can't easily map back to song here, but we know it failed
+        }
+      } catch (e) {
+         console.warn('Fout bij toevoegen video aan playlist', e);
       }
     }
   }
 
-  return `https://www.youtube.com/playlist?list=${playlist.id}`;
+  return {
+    playlistUrl: `https://www.youtube.com/playlist?list=${playlist.id}`,
+    addedCount,
+    failedSongs
+  };
 };
 
 // Check authentication status
