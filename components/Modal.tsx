@@ -97,6 +97,7 @@ const Modal: React.FC<ModalProps> = memo(({
 
   // Video State
   const [loadingVideo, setLoadingVideo] = useState(true);
+  const [videoSearchMode, setVideoSearchMode] = useState<'specific' | 'artist'>('specific');
 
   // Prevent scrolling on body when modal is open
   useEffect(() => {
@@ -127,6 +128,7 @@ const Modal: React.FC<ModalProps> = memo(({
     setAnalysis('');
     setLyrics('');
     setLoadingVideo(true);
+    setVideoSearchMode('specific');
     setLocalCover(song.coverUrl);
     setLocalPreview(song.previewUrl);
     
@@ -345,7 +347,11 @@ const Modal: React.FC<ModalProps> = memo(({
                   <iframe 
                     width="100%" 
                     height="100%" 
-                    src={`https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(`${song.artist} ${song.title} Top 2000`)}`}
+                    src={`https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(
+                      videoSearchMode === 'specific' 
+                        ? `${song.artist} ${song.title}` 
+                        : `${song.artist}`
+                    )}`}
                     title="YouTube video player" 
                     frameBorder="0" 
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
@@ -354,6 +360,18 @@ const Modal: React.FC<ModalProps> = memo(({
                     className="absolute inset-0 w-full h-full"
                   ></iframe>
                 </div>
+                
+                <div className="mt-3">
+                  <button 
+                    onClick={() => setVideoSearchMode(prev => prev === 'specific' ? 'artist' : 'specific')}
+                    className="text-xs text-gray-500 hover:text-[#d00018] underline transition-colors"
+                  >
+                    {videoSearchMode === 'specific' 
+                      ? "Video niet beschikbaar? Zoek alleen op artiest" 
+                      : "Zoek op titel en artiest"}
+                  </button>
+                </div>
+
                 <div className="mt-4 text-center">
                    <a 
                      href="https://youtube.com/@top2000agogo" 
