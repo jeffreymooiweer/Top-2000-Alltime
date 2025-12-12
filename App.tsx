@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback, Suspense, laz
 import { SongData } from './types';
 import { scrapeWikipediaData } from './services/wikipediaService'; 
 import { prefetchMetadata } from './services/itunesService';
-import { exportToExcel, exportToPDF } from './services/exportService';
+import { exportToExcel, exportToPDF, exportForTransfer } from './services/exportService';
 import {
   initiateSpotifyAuth,
   handleSpotifyCallback,
@@ -633,6 +633,10 @@ const App: React.FC = () => {
         case 'YouTube Music':
           await handleStreamingExport('youtube');
           break;
+        case 'Transfer':
+          exportForTransfer(processedSongs);
+          setIsDownloadOpen(false);
+          break;
         default:
           console.warn(`Unknown export type: ${type}`);
       }
@@ -889,6 +893,14 @@ const App: React.FC = () => {
                                          <span className="text-xs text-green-600 font-bold">✓</span>
                                        )}
                                      </div>
+                                 </button>
+                                 
+                                 <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-1">
+                                     Overig
+                                 </div>
+                                 <button onClick={() => handleDownload('Transfer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
+                                     <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                     <span className="font-medium">Voor Soundiiz / Transfer</span>
                                  </button>
                              </div>
                          )}

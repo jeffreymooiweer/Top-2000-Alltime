@@ -187,3 +187,33 @@ export const exportToYouTubeMusic = (songs: SongData[]): void => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
+
+/**
+ * Export for 3rd party transfer tools (Soundiiz, TuneMyMusic, etc.)
+ * Creates a standard CSV with Title, Artist, Year
+ */
+export const exportForTransfer = (songs: SongData[]): void => {
+  const csvRows = ['Title,Artist,Year,Rank'];
+  
+  songs.forEach((song, index) => {
+    // Escape quotes in fields
+    const title = song.title.replace(/"/g, '""');
+    const artist = song.artist.replace(/"/g, '""');
+    const year = song.releaseYear > 0 ? song.releaseYear : '';
+    const rank = song.allTimeRank || index + 1;
+    
+    csvRows.push(`"${title}","${artist}","${year}","${rank}"`);
+  });
+
+  const csvContent = csvRows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Top-2000-Transfer-Export-${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
