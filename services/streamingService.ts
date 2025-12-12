@@ -803,8 +803,25 @@ export const createYouTubePlaylist = async (
   });
 
   if (!playlistResponse.ok) {
-    const error = await playlistResponse.text();
-    throw new Error(`Kon playlist niet aanmaken: ${error}`);
+    const errorText = await playlistResponse.text();
+    let errorMessage = errorText;
+    
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.error?.code === 403 && (errorJson.error?.message?.includes('quota') || errorJson.error?.errors?.[0]?.reason === 'quotaExceeded')) {
+        throw new Error('YouTube API quota overschreden. De dagelijkse limiet van Google is bereikt. Probeer het morgen opnieuw of gebruik Spotify/Deezer.');
+      }
+      if (errorJson.error?.message) {
+        errorMessage = errorJson.error.message;
+      }
+    } catch (e) {
+      // If parsing fails or it's not a quota error, we fall through to the generic error
+      if (e instanceof Error && e.message.includes('quota')) {
+        throw e;
+      }
+    }
+    
+    throw new Error(`Kon playlist niet aanmaken: ${errorMessage}`);
   }
 
   const playlist = await playlistResponse.json();
