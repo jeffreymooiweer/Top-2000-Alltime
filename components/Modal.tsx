@@ -98,7 +98,6 @@ const Modal: React.FC<ModalProps> = memo(({
 
   // Video State
   const [loadingVideo, setLoadingVideo] = useState(true);
-  const [videoSearchMode, setVideoSearchMode] = useState<'specific' | 'artist'>('specific');
   const [apiVideoId, setApiVideoId] = useState<string | null>(null);
 
   // Prevent scrolling on body when modal is open
@@ -130,7 +129,6 @@ const Modal: React.FC<ModalProps> = memo(({
     setAnalysis('');
     setLyrics('');
     setLoadingVideo(true);
-    setVideoSearchMode('specific');
     setApiVideoId(null);
     setLocalCover(song.coverUrl);
     setLocalPreview(song.previewUrl);
@@ -171,7 +169,7 @@ const Modal: React.FC<ModalProps> = memo(({
     if (activeTab === 'video') {
       setLoadingVideo(true);
       if (isYouTubeAuthenticated()) {
-        searchYouTubeVideo(song.artist, song.title).then(id => {
+        searchYouTubeVideo(`top 2000 a gogo ${song.artist}`, song.title).then(id => {
           if (id) setApiVideoId(id);
         });
       }
@@ -358,9 +356,7 @@ const Modal: React.FC<ModalProps> = memo(({
                     src={apiVideoId 
                       ? `https://www.youtube.com/embed/${apiVideoId}?autoplay=0`
                       : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(
-                      videoSearchMode === 'specific' 
-                        ? `${song.artist} ${song.title}` 
-                        : `${song.artist}`
+                      `top 2000 a gogo ${song.artist} ${song.title}`
                     )}`}
                     title="YouTube video player" 
                     frameBorder="0" 
@@ -369,38 +365,6 @@ const Modal: React.FC<ModalProps> = memo(({
                     onLoad={() => setLoadingVideo(false)}
                     className="absolute inset-0 w-full h-full"
                   ></iframe>
-                </div>
-                
-                <div className="mt-3">
-                  <button 
-                    onClick={() => setVideoSearchMode(prev => prev === 'specific' ? 'artist' : 'specific')}
-                    className="text-xs text-gray-500 hover:text-[#d00018] underline transition-colors"
-                  >
-                    {videoSearchMode === 'specific' 
-                      ? "Video niet beschikbaar? Zoek alleen op artiest" 
-                      : "Zoek op titel en artiest"}
-                  </button>
-                </div>
-
-                <div className="mt-4 text-center flex flex-col items-center gap-2">
-                   <a 
-                     href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${song.artist} ${song.title}`)}`}
-                     target="_blank" 
-                     rel="noopener noreferrer"
-                     className="bg-[#d00018] text-white px-4 py-2 rounded-lg font-bold text-sm inline-flex items-center gap-2 hover:bg-[#b00014] transition shadow-sm"
-                   >
-                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
-                     Bekijk op YouTube
-                   </a>
-
-                   <a 
-                     href="https://youtube.com/@top2000agogo" 
-                     target="_blank" 
-                     rel="noopener noreferrer"
-                     className="text-gray-500 hover:text-[#d00018] text-xs flex items-center justify-center gap-1 transition"
-                   >
-                     of bekijk het Top 2000 a gogo kanaal
-                   </a>
                 </div>
             </div>
           )}
