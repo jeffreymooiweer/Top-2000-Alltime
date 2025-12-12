@@ -335,13 +335,11 @@ const App: React.FC = () => {
               try {
                 const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
                 const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
-                const playlistUrl = await createYouTubePlaylist(processedSongs, playlistName);
-                alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
-                window.open(playlistUrl, '_blank');
+                const result = await createYouTubePlaylist(processedSongs, playlistName);
+                setPlaylistResult(result);
               } catch (error: any) {
-                alert(`Fout bij aanmaken playlist: ${error.message}`);
-              } finally {
                 setIsCreatingPlaylist(false);
+                alert(`Fout bij aanmaken playlist: ${error.message}`);
               }
             } else {
               alert('YouTube account succesvol gekoppeld! Je kunt nu een playlist aanmaken via het download menu.');
@@ -377,13 +375,11 @@ const App: React.FC = () => {
                 try {
                   const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
                   const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
-                  const playlistUrl = await createYouTubePlaylist(processedSongs, playlistName);
-                  alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
-                  window.open(playlistUrl, '_blank');
+                  const result = await createYouTubePlaylist(processedSongs, playlistName);
+                  setPlaylistResult(result);
                 } catch (error: any) {
-                  alert(`Fout bij aanmaken playlist: ${error.message}`);
-                } finally {
                   setIsCreatingPlaylist(false);
+                  alert(`Fout bij aanmaken playlist: ${error.message}`);
                 }
               } else {
                 alert('YouTube account succesvol gekoppeld! Je kunt nu een playlist aanmaken via het download menu.');
@@ -694,20 +690,18 @@ const App: React.FC = () => {
         );
         setPlaylistResult(result);
         // Don't close modal yet - show result modal instead
-      } else {
-        let playlistUrl: string;
-        if (service === 'deezer') {
-          playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
-        } else {
-          playlistUrl = await createYouTubePlaylist(
-            processedSongs, 
-            playlistName,
-            (current, total) => setPlaylistProgress({ current, total })
-          );
-        }
+      } else if (service === 'deezer') {
+        const playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
         setIsCreatingPlaylist(false);
         alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
         window.open(playlistUrl, '_blank');
+      } else {
+        const result = await createYouTubePlaylist(
+          processedSongs, 
+          playlistName,
+          (current, total) => setPlaylistProgress({ current, total })
+        );
+        setPlaylistResult(result);
       }
     } catch (error: any) {
       setIsCreatingPlaylist(false);
