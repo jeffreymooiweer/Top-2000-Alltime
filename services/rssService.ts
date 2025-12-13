@@ -8,6 +8,40 @@ export interface NewsItem {
 }
 
 const FEED_URL = 'https://www.nporadio2.nl/nieuws/rss';
+const CACHE_KEY = 'news_feed_cache';
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+
+interface CachedFeed {
+  timestamp: number;
+  data: NewsItem[];
+}
+
+const getCachedFeed = (): NewsItem[] | null => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+
+    const parsed: CachedFeed = JSON.parse(cached);
+    if (Date.now() - parsed.timestamp < CACHE_DURATION) {
+      return parsed.data;
+    }
+  } catch (e) {
+    console.warn("Error reading cache", e);
+  }
+  return null;
+};
+
+const setCachedFeed = (data: NewsItem[]) => {
+  try {
+    const cache: CachedFeed = {
+      timestamp: Date.now(),
+      data
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch (e) {
+    console.warn("Error setting cache", e);
+  }
+};
 
 const fetchRawContent = async (url: string): Promise<string | null> => {
     // Strategy 1: AllOrigins (Returns JSON with 'contents' field)
@@ -39,6 +73,12 @@ const fetchRawContent = async (url: string): Promise<string | null> => {
 };
 
 export const fetchNewsFeed = async (): Promise<NewsItem[]> => {
+  // Check cache first
+  const cached = getCachedFeed();
+  if (cached) {
+    return cached;
+  }
+
   try {
     const rawContent = await fetchRawContent(FEED_URL);
     
@@ -61,7 +101,7 @@ export const fetchNewsFeed = async (): Promise<NewsItem[]> => {
         return combinedText.includes("top 2000") || combinedText.includes("top2000");
     });
 
-    return filteredItems.slice(0, 3).map((item) => {
+    const result = filteredItems.slice(0, 3).map((item) => {
       const title = item.querySelector("title")?.textContent || "Nieuwsbericht";
       const link = item.querySelector("link")?.textContent || "#";
       const pubDateStr = item.querySelector("pubDate")?.textContent || "";
@@ -112,6 +152,12 @@ export const fetchNewsFeed = async (): Promise<NewsItem[]> => {
         imageUrl
       };
     });
+
+    if (result.length > 0) {
+      setCachedFeed(result);
+    }
+    
+    return result;
   } catch (error) {
     console.error("Error parsing RSS feed:", error);
     return [];
