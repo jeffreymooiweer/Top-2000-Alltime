@@ -5,7 +5,7 @@ import AudioPlayer from './AudioPlayer';
 import { getSongAnalysis } from '../services/geminiService';
 import { getLyrics } from '../services/lyricsService';
 import { fetchSongMetadata } from '../services/itunesService';
-import { isYouTubeAuthenticated, searchYouTubeVideo } from '../services/streamingService';
+import { YouTubeTop2000Embed } from './YouTubeTop2000Embed';
 
 interface ModalProps {
   song: SongData;
@@ -96,10 +96,6 @@ const Modal: React.FC<ModalProps> = memo(({
   const [lyrics, setLyrics] = useState<string>('');
   const [loadingLyrics, setLoadingLyrics] = useState(false);
 
-  // Video State
-  const [loadingVideo, setLoadingVideo] = useState(true);
-  const [apiVideoId, setApiVideoId] = useState<string | null>(null);
-
   // Prevent scrolling on body when modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -128,8 +124,6 @@ const Modal: React.FC<ModalProps> = memo(({
     setActiveTab('overview');
     setAnalysis('');
     setLyrics('');
-    setLoadingVideo(true);
-    setApiVideoId(null);
     setLocalCover(song.coverUrl);
     setLocalPreview(song.previewUrl);
     
@@ -164,17 +158,6 @@ const Modal: React.FC<ModalProps> = memo(({
       fetchLyrics();
     }
   }, [activeTab, song.id, lyrics, loadingLyrics]);
-
-  useEffect(() => {
-    if (activeTab === 'video') {
-      setLoadingVideo(true);
-      if (isYouTubeAuthenticated()) {
-        searchYouTubeVideo(`top 2000 a gogo ${song.artist}`, song.title).then(id => {
-          if (id) setApiVideoId(id);
-        });
-      }
-    }
-  }, [activeTab, song.artist, song.title]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -344,27 +327,12 @@ const Modal: React.FC<ModalProps> = memo(({
                <h4 className="font-bold text-lg mb-6 brand-font uppercase text-gray-400 self-start w-full text-center">
                   Top 2000 a gogo
                 </h4>
-                <div className="w-full max-w-2xl aspect-video relative bg-black rounded-lg overflow-hidden shadow-lg">
-                  {loadingVideo && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 z-10">
-                      <div className="w-12 h-12 border-4 border-[#d00018] border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  )}
-                  <iframe 
-                    width="100%" 
-                    height="100%" 
-                    src={apiVideoId 
-                      ? `https://www.youtube.com/embed/${apiVideoId}?autoplay=0`
-                      : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(
-                      `top 2000 a gogo ${song.artist} ${song.title}`
-                    )}`}
-                    title="YouTube video player" 
-                    frameBorder="0" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                    allowFullScreen
-                    onLoad={() => setLoadingVideo(false)}
-                    className="absolute inset-0 w-full h-full"
-                  ></iframe>
+                <div className="w-full max-w-2xl">
+                   <YouTubeTop2000Embed 
+                      artist={song.artist} 
+                      title={song.title} 
+                      autoplay={false}
+                   />
                 </div>
             </div>
           )}
