@@ -741,8 +741,56 @@ const App: React.FC = () => {
                       Sluiten
                   </button>
                   
-                  <div className="flex-1 overflow-y-auto">
-                      {/* Menu items removed as per request */}
+                  <div className="flex-1 overflow-y-auto py-4">
+                      <nav className="space-y-2">
+                          <button 
+                              onClick={() => { 
+                                  setIsMenuOpen(false); 
+                                  setSearchQuery(''); 
+                                  setSelectedYear('all-time'); 
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }} 
+                              className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
+                          >
+                              Home / Reset
+                          </button>
+                          
+                          <div className="h-px bg-white/20 my-2 mx-4"></div>
+                          
+                          <a 
+                              href="https://www.nporadio2.nl/top2000" 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
+                          >
+                              Top 2000 Website
+                          </a>
+                          <a 
+                              href="https://www.nporadio2.nl/stemmen" 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
+                          >
+                              Stemlijst
+                          </a>
+                          <a 
+                              href="https://www.nporadio2.nl" 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
+                          >
+                              NPO Radio 2
+                          </a>
+
+                          <div className="h-px bg-white/20 my-2 mx-4"></div>
+
+                          <div className="px-4 py-2">
+                              <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-2">Over</p>
+                              <p className="text-sm text-white/80 leading-relaxed">
+                                  Deze Top 2000 Allertijden Lijst berekent de ultieme ranglijst op basis van alle historische noteringen sinds 1999.
+                              </p>
+                          </div>
+                      </nav>
                   </div>
 
                   <div className="mt-auto pt-6 border-t border-white/20 text-white/80 text-sm">
