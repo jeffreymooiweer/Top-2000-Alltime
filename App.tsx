@@ -815,7 +815,7 @@ const App: React.FC = () => {
         {!debouncedSearchQuery && (
             <div className="mb-8 px-4 md:px-0 flex flex-wrap gap-4 justify-center">
                 <a 
-                    href="https://open.spotify.com/playlist/0qE52uHy1zj2auhKBYlNoW?si=UR2tAD45T3yPQg0PXIR3-A&pi=TnRmU0ZKTpC1l"
+                    href="https://open.spotify.com/playlist/2n4xz2gkGaY3GokSxeWzHC?si=eVTtfX0XSz2VIMY7OaA8Bg&pi=o3kWWqn0QSSKl"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 w-48"
