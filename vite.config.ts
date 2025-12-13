@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  base: '/Top-2000-Alltime/', // nodig voor GitHub Pages
+  base: '/', // Changed for custom domain top2000allertijden.nl
   server: {
     port: 3000,
     host: '0.0.0.0',

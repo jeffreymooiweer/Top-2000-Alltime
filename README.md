@@ -96,14 +96,14 @@ Om de streamingdienst integratie te gebruiken, moet je eerst een OAuth app aanma
 #### Spotify Setup
 1. Ga naar [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 2. Maak een nieuwe app aan
-3. Voeg deze redirect URI toe: `https://jouw-domein.nl/path#spotify-callback`
+3. Voeg deze redirect URI toe: `https://top2000allertijden.nl/#spotify-callback`
 4. Kopieer je Client ID
 5. Voer de Client ID in via de setup modal in de applicatie
 
 #### Deezer Setup
 1. Ga naar [Deezer Developer Portal](https://developers.deezer.com/myapps)
 2. Maak een nieuwe applicatie aan
-3. Voeg deze redirect URI toe: `https://jouw-domein.nl/path#deezer-callback`
+3. Voeg deze redirect URI toe: `https://top2000allertijden.nl/#deezer-callback`
 4. Kopieer je Application ID
 5. Voer de Application ID in via de setup modal in de applicatie
 
@@ -112,7 +112,7 @@ Om de streamingdienst integratie te gebruiken, moet je eerst een OAuth app aanma
 2. Maak een nieuw project aan of selecteer een bestaand project
 3. Schakel YouTube Data API v3 in
 4. Maak OAuth 2.0 credentials aan (Web application)
-5. Voeg deze redirect URI toe: `https://jouw-domein.nl/path` (ZONDER hashtag!)
+5. Voeg deze redirect URI toe: `https://top2000allertijden.nl` (ZONDER hashtag!)
 6. Kopieer je Client ID
 7. Voer de Client ID in via de setup modal in de applicatie
 
