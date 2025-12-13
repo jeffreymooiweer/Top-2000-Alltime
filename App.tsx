@@ -817,7 +817,7 @@ const App: React.FC = () => {
                 <h3 className="text-white text-lg font-bold mb-4 uppercase tracking-wider drop-shadow-md text-center px-4">
                     Beluister hier de lijst op je favoriete streamingdienst
                 </h3>
-                <div className="px-4 md:px-0 flex flex-wrap gap-4 justify-center items-center">
+                <div className="px-2 md:px-0 flex flex-wrap gap-2 md:gap-4 justify-center items-center">
                     {[
                         {
                             name: 'Spotify',
@@ -827,7 +827,7 @@ const App: React.FC = () => {
                         {
                             name: 'Deezer',
                             icon: 'icon_deezer.png',
-                            link: 'https://link.deezer.com/s/31S2wx3mRhrCeBF0mIrca'
+                            link: 'https://www.deezer.com/playlist/14697905101'
                         },
                         {
                             name: 'YouTube Music',
@@ -837,7 +837,7 @@ const App: React.FC = () => {
                         {
                             name: 'Tidal',
                             icon: 'icon_tidal.png',
-                            link: 'https://tidal.com/playlist/545e3d24-a1a0-47fe-af88-70a154e77073'
+                            link: 'https://tidal.com/browse/playlist/545e3d24-a1a0-47fe-af88-70a154e77073'
                         },
                         {
                             name: 'Apple Music',
@@ -856,7 +856,7 @@ const App: React.FC = () => {
                             <img 
                                 src={`${import.meta.env.BASE_URL}Image/${service.icon}`} 
                                 alt={`Listen on ${service.name}`} 
-                                className="w-16 h-16 object-contain"
+                                className="w-12 h-12 md:w-16 md:h-16 object-contain"
                             />
                         </a>
                     ))}
