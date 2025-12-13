@@ -10,14 +10,20 @@ const GROQ_MODEL = "llama-3.1-8b-instant";
 // Gebruik bij voorkeur een key die je kunt weggooien en hou rekening met mogelijk misbruik.
 const GROQ_API_KEY = "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"
 
+const getFallbackAnalysis = (artist: string, title: string) => {
+    return `"${title}" van ${artist} is een vaste waarde in de Top 2000. Het nummer roept bij veel luisteraars nostalgische gevoelens op en wordt jaarlijks door duizenden mensen gekozen als een van de beste nummers aller tijden.`;
+};
+
 export const getSongAnalysis = async (
   artist: string,
   title: string
 ): Promise<string> => {
+  const fallback = getFallbackAnalysis(artist, title);
+
   try {
     if (!GROQ_API_KEY || GROQ_API_KEY === "PLAATS_HIER_JE_GROQ_API_KEY") {
       console.warn("Groq API key is niet ingesteld.");
-      return "Kon geen analyse laden op dit moment.";
+      return fallback;
     }
 
     const prompt =
@@ -57,7 +63,7 @@ export const getSongAnalysis = async (
         console.warn("⚠️ De Groq API key is waarschijnlijk verlopen of ongeldig. Update GROQ_API_KEY in services/geminiService.ts.");
       }
       
-      return "Kon geen analyse laden op dit moment.";
+      return fallback;
     }
 
     const data: any = await response.json();
@@ -68,12 +74,12 @@ export const getSongAnalysis = async (
       "";
 
     if (!text) {
-      return "Geen analyse beschikbaar.";
+      return fallback;
     }
 
     return text;
   } catch (error) {
     console.error("Groq API fout:", error);
-    return "Kon geen analyse laden op dit moment.";
+    return fallback;
   }
 };
