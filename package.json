@@ -2,6 +2,7 @@
   "name": "top-2000-allertijden",
   "private": true,
   "version": "0.0.0",
+  "homepage": "https://top2000allertijden.nl",
   "type": "module",
   "scripts": {
     "dev": "vite",
