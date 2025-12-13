@@ -26,6 +26,8 @@ import StreamingSetupModal from './components/StreamingSetupModal';
 // Lazy load Modal component (large component with chart and analysis)
 const Modal = lazy(() => import('./components/Modal'));
 
+import HowItWorksModal from './components/HowItWorksModal';
+
 // Calculation Logic:
 // Rank 1 = 2000 points. Rank 2000 = 1 point.
 // Formula: Points = 2001 - Rank.
@@ -65,6 +67,7 @@ const App: React.FC = () => {
   // Header Menus State
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   
   // Streaming Setup State
   const [streamingSetupService, setStreamingSetupService] = useState<'spotify' | 'deezer' | 'youtube' | null>(null);
@@ -86,6 +89,7 @@ const App: React.FC = () => {
   const downloadDropdownRef = useRef<HTMLDivElement>(null);
   const shareButtonRef = useRef<HTMLButtonElement>(null);
   const shareDropdownRef = useRef<HTMLDivElement>(null);
+  const newsFeedRef = useRef<HTMLDivElement>(null);
   
   // Handle click outside to close dropdowns
   useEffect(() => {
@@ -752,44 +756,29 @@ const App: React.FC = () => {
                               }} 
                               className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
                           >
-                              Home / Reset
+                              Home
+                          </button>
+                          <button 
+                              onClick={() => { 
+                                  setIsMenuOpen(false);
+                                  newsFeedRef.current?.scrollIntoView({ behavior: 'smooth' });
+                              }} 
+                              className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
+                          >
+                              Nieuws
                           </button>
                           
                           <div className="h-px bg-white/20 my-2 mx-4"></div>
                           
-                          <a 
-                              href="https://www.nporadio2.nl/top2000" 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
+                          <button 
+                              onClick={() => { 
+                                  setIsMenuOpen(false);
+                                  setIsHowItWorksOpen(true);
+                              }} 
                               className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
                           >
-                              Top 2000 Website
-                          </a>
-                          <a 
-                              href="https://www.nporadio2.nl/stemmen" 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
-                          >
-                              Stemlijst
-                          </a>
-                          <a 
-                              href="https://www.nporadio2.nl" 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
-                          >
-                              NPO Radio 2
-                          </a>
-
-                          <div className="h-px bg-white/20 my-2 mx-4"></div>
-
-                          <div className="px-4 py-2">
-                              <p className="text-xs text-white/60 uppercase tracking-wider font-bold mb-2">Over</p>
-                              <p className="text-sm text-white/80 leading-relaxed">
-                                  Deze Top 2000 Allertijden Lijst berekent de ultieme ranglijst op basis van alle historische noteringen sinds 1999.
-                              </p>
-                          </div>
+                              Hoe werkt het?
+                          </button>
                       </nav>
                   </div>
 
@@ -862,7 +851,11 @@ const App: React.FC = () => {
         )}
 
         {/* RSS Feed Section */}
-        {!debouncedSearchQuery && <NewsFeed />}
+        {!debouncedSearchQuery && (
+          <div ref={newsFeedRef}>
+            <NewsFeed />
+          </div>
+        )}
 
         {/* Promo Buttons Section */}
         {!debouncedSearchQuery && (
@@ -1265,6 +1258,10 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {isHowItWorksOpen && (
+        <HowItWorksModal onClose={() => setIsHowItWorksOpen(false)} />
       )}
 
     </div>
