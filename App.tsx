@@ -813,19 +813,54 @@ const App: React.FC = () => {
 
         {/* Promo Buttons Section */}
         {!debouncedSearchQuery && (
-            <div className="mb-8 px-4 md:px-0 flex flex-wrap gap-4 justify-center">
-                <a 
-                    href="https://open.spotify.com/playlist/2n4xz2gkGaY3GokSxeWzHC?si=eVTtfX0XSz2VIMY7OaA8Bg&pi=o3kWWqn0QSSKl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 w-48"
-                >
-                    <img 
-                        src={`${import.meta.env.BASE_URL}Image/listen-on-spotify.png`} 
-                        alt="Listen on Spotify" 
-                        className="w-full h-auto object-cover"
-                    />
-                </a>
+            <div className="mb-8 flex flex-col items-center">
+                <h3 className="text-white text-lg font-bold mb-4 uppercase tracking-wider drop-shadow-md text-center px-4">
+                    Beluister hier de lijst op je favoriete streamingdienst
+                </h3>
+                <div className="px-4 md:px-0 flex flex-wrap gap-4 justify-center items-center">
+                    {[
+                        {
+                            name: 'Spotify',
+                            icon: 'icon_spotify.png',
+                            link: 'https://open.spotify.com/playlist/2n4xz2gkGaY3GokSxeWzHC?si=eVTtfX0XSz2VIMY7OaA8Bg&pi=o3kWWqn0QSSKl'
+                        },
+                        {
+                            name: 'Deezer',
+                            icon: 'icon_deezer.png',
+                            link: 'https://link.deezer.com/s/31S2wx3mRhrCeBF0mIrca'
+                        },
+                        {
+                            name: 'YouTube Music',
+                            icon: 'icon_ytm.png',
+                            link: 'https://music.youtube.com/playlist?list=PLIaIWD17L__XkoxtAkhMe_YIcSNov8Ox0&si=bmIrVEv1wZcNY3F1'
+                        },
+                        {
+                            name: 'Tidal',
+                            icon: 'icon_tidal.png',
+                            link: 'https://tidal.com/playlist/545e3d24-a1a0-47fe-af88-70a154e77073'
+                        },
+                        {
+                            name: 'Apple Music',
+                            icon: 'icon_apple.png',
+                            link: '#'
+                        }
+                    ].map((service) => (
+                        <a 
+                            key={service.name}
+                            href={service.link}
+                            target={service.link === '#' ? undefined : "_blank"}
+                            rel={service.link === '#' ? undefined : "noopener noreferrer"}
+                            className={`block group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 ${service.link === '#' ? 'cursor-default opacity-80' : ''}`}
+                            onClick={service.link === '#' ? (e) => e.preventDefault() : undefined}
+                        >
+                            <img 
+                                src={`${import.meta.env.BASE_URL}Image/${service.icon}`} 
+                                alt={`Listen on ${service.name}`} 
+                                className="w-16 h-16 object-contain"
+                            />
+                        </a>
+                    ))}
+                </div>
             </div>
         )}
 
