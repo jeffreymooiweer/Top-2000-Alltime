@@ -735,17 +735,22 @@ const App: React.FC = () => {
       {isMenuOpen && (
           <div className="fixed inset-0 z-50 flex">
               <div className="fixed inset-0 bg-black/50" onClick={() => setIsMenuOpen(false)}></div>
-              <div className="relative bg-[#e60028] w-72 h-full text-white p-6 shadow-xl animate-slide-in-left overflow-y-auto">
+              <div className="relative bg-[#e60028] w-72 h-full text-white p-6 shadow-xl animate-slide-in-left flex flex-col">
                   <button onClick={() => setIsMenuOpen(false)} className="mb-8 font-bold text-xl flex items-center gap-2">
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                       Sluiten
                   </button>
-                  <nav className="space-y-4 font-bold brand-font text-lg">
-                      <a href="#" className="block hover:text-white/80" onClick={() => setIsMenuOpen(false)}>Home</a>
-                      <a href="#" className="block hover:text-white/80" onClick={() => setIsMenuOpen(false)}>Nieuws</a>
-                      <a href="#" className="block hover:text-white/80" onClick={() => setIsMenuOpen(false)}>Podcasts</a>
-                      <a href="#" className="block hover:text-white/80" onClick={() => setIsMenuOpen(false)}>Programmering</a>
-                  </nav>
+                  
+                  <div className="flex-1 overflow-y-auto">
+                      {/* Menu items removed as per request */}
+                  </div>
+
+                  <div className="mt-auto pt-6 border-t border-white/20 text-white/80 text-sm">
+                       <div className="flex items-center gap-2 mb-2 font-bold">
+                          <span>NPO</span> Radio 2 Top 2000
+                       </div>
+                       <p>© 2024 NPO Radio 2.<br/>Allertijden Calculator.</p>
+                  </div>
               </div>
           </div>
       )}
