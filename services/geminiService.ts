@@ -52,6 +52,11 @@ export const getSongAnalysis = async (
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
       console.error("Groq API error status:", response.status, errText);
+      
+      if (response.status === 401) {
+        console.warn("⚠️ De Groq API key is waarschijnlijk verlopen of ongeldig. Update GROQ_API_KEY in services/geminiService.ts.");
+      }
+      
       return "Kon geen analyse laden op dit moment.";
     }
 
