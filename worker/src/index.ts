@@ -1,6 +1,3 @@
-import { Env } from './types'; // Assuming types file exists or implicit
-// No types file visible, assuming JS/TS mix is handled by environment.
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
