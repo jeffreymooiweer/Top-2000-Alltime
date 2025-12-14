@@ -1,4 +1,3 @@
-
 interface MetadataCacheEntry {
     coverUrl: string | null;
     previewUrl: string | null;
@@ -12,6 +11,8 @@ const DB_VERSION = 1;
 // In-memory mirror for instant access during session
 const memoryCache: Map<string, MetadataCacheEntry> = new Map();
 const pendingRequests = new Map<string, Promise<{ coverUrl: string | null; previewUrl: string | null }>>();
+
+const API_BASE = 'https://api.top2000allertijden.nl';
 
 // --- IndexedDB Helpers ---
 
@@ -59,143 +60,91 @@ const putToDB = async (key: string, data: MetadataCacheEntry) => {
     }
 };
 
-// --- Search Helpers ---
+// --- Helper Functions ---
 
-const cleanString = (str: string) => {
-    return str.toLowerCase()
-        .replace(/\(.*\)/g, '') 
-        .replace(/\[.*\]/g, '') 
-        .replace(/ - .*/, '') 
-        .replace(/ ft\. .*/, '')
-        .replace(/ feat\. .*/, '')
-        .replace(/ featuring .*/, '')
-        .replace(/,/g, '')
-        .replace(/'/g, '')
+const normalizeString = (str: string): string => {
+    return str
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove diacritics
+        .replace(/['’‘`´]/g, "'") // normalize apostrophes
+        .replace(/\s+/g, ' ') // reduce multiple spaces
         .trim();
 };
 
 // --- Main Fetch Function ---
 
 export const fetchSongMetadata = async (artist: string, title: string): Promise<{ coverUrl: string | null; previewUrl: string | null }> => {
-  const cacheKey = `${artist}|${title}`.toLowerCase();
+    // Determine the deterministic key for caching and API lookup
+    const normalizedKey = `${normalizeString(artist)}|${normalizeString(title)}`;
   
-  // 1. Check Memory
-  if (memoryCache.has(cacheKey)) {
-      return memoryCache.get(cacheKey)!;
-  }
+    // 1. Check Memory
+    if (memoryCache.has(normalizedKey)) {
+        return memoryCache.get(normalizedKey)!;
+    }
 
-  // 2. Check Pending
-  if (pendingRequests.has(cacheKey)) {
-      return pendingRequests.get(cacheKey)!;
-  }
+    // 2. Check Pending
+    if (pendingRequests.has(normalizedKey)) {
+        return pendingRequests.get(normalizedKey)!;
+    }
 
-  // 3. Initiate Logic
-  const processPromise = (async () => {
+    // 3. Initiate Logic
+    const processPromise = (async () => {
       
-      // Check IndexedDB
-      const dbEntry = await getFromDB(cacheKey);
-      if (dbEntry) {
-          memoryCache.set(cacheKey, dbEntry);
-          return { coverUrl: dbEntry.coverUrl, previewUrl: dbEntry.previewUrl };
-      }
+        // Check IndexedDB
+        const dbEntry = await getFromDB(normalizedKey);
+        if (dbEntry) {
+            memoryCache.set(normalizedKey, dbEntry);
+            return { coverUrl: dbEntry.coverUrl, previewUrl: dbEntry.previewUrl };
+        }
 
-      // Network Fetch Strategy
-      const queries = [
-          `${cleanString(artist)} ${cleanString(title)}`,
-          `${cleanString(title)} ${cleanString(artist)}`,
-          `${cleanString(title)}`
-      ];
-      // Deduplicate queries
-      const uniqueQueries = [...new Set(queries)];
+        // 4. Network Fetch Strategy (Cloudflare Worker)
+        try {
+            // Step A: Check /mapped
+            const mappedUrl = `${API_BASE}/itunes/mapped?key=${encodeURIComponent(normalizedKey)}`;
+            const mappedResp = await fetch(mappedUrl);
+            
+            if (mappedResp.ok) {
+                const mappedData = await mappedResp.json();
+                if (mappedData.found) {
+                    return {
+                        coverUrl: mappedData.artworkUrl || null,
+                        previewUrl: mappedData.previewUrl || null
+                    };
+                }
+            }
 
-      const MAX_RETRIES = 50; 
-      let currentDelay = 200; 
+            // Step B: Call /resolve if not found in mapped
+            const resolveUrl = `${API_BASE}/itunes/resolve?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`;
+            const resolveResp = await fetch(resolveUrl);
 
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-          let hitRateLimit = false;
-          let technicalError = false;
+            if (resolveResp.ok) {
+                const resolveData = await resolveResp.json();
+                // The structure from resolve is likely similar to mapped or directly the metadata
+                // Assuming it returns { found: boolean, artworkUrl: ..., previewUrl: ... } or just the fields
+                // Based on user prompt "Resultaat van /resolve wordt direct gebruikt"
+                
+                return {
+                    coverUrl: resolveData.artworkUrl || null,
+                    previewUrl: resolveData.previewUrl || null
+                };
+            }
+        } catch (err) {
+            console.error('Error fetching metadata from worker:', err);
+        }
 
-          for (const query of uniqueQueries) {
-              const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=1&country=NL`;
-              
-              try {
-                  const response = await fetch(url);
-                  
-                  // Rate Limit Detection
-                  if (response.status === 429 || response.status === 403) {
-                      throw new Error('RateLimit');
-                  }
-                  
-                  if (!response.ok) {
-                      // Server error (500), try next query but mark as tech error
-                      technicalError = true;
-                      continue; 
-                  }
+        // If we fall through here, return nulls (not found or error)
+        return { coverUrl: null, previewUrl: null };
 
-                  const data = await response.json();
-                  if (data.results && data.results.length > 0) {
-                      const track = data.results[0];
-                      return {
-                          coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb', '600x600bb') : null,
-                          previewUrl: track.previewUrl
-                      };
-                  }
-                  
-                  // If we are here: 200 OK, but results array is empty.
-                  // Try the next query variation in the loop.
-                  
-              } catch (err: any) {
-                  if (err.message === 'RateLimit') {
-                      hitRateLimit = true;
-                      break; // Break the query loop, force a sleep and retry
-                  }
-                  // Network error? Mark and try next query.
-                  technicalError = true;
-              }
-          }
-
-          // DECISION POINT:
-          // If we hit a Rate Limit OR a Technical Error (like offline), we should Retry.
-          if (hitRateLimit || technicalError) {
-              // Backoff Logic
-              const jitter = Math.random() * 500;
-              const sleepTime = currentDelay + jitter;
-              await new Promise(resolve => setTimeout(resolve, sleepTime));
-              currentDelay = Math.min(currentDelay * 1.5, 10000);
-              continue; // Retry outer loop
-          }
-
-          // If we are here, it means we tried all queries, got valid responses (200 OK),
-          // but found ZERO results for any of them.
-          // This song is not in iTunes. Do NOT retry.
-          break; 
-      }
-
-      // If we fall through here, either max retries reached OR not found.
-      return { coverUrl: null, previewUrl: null };
-
-  })().then(result => {
-      // Save to caches (even if null, to prevent re-fetching known missing songs)
-      const entry = { ...result, timestamp: Date.now() };
-      memoryCache.set(cacheKey, entry);
-      putToDB(cacheKey, entry);
+    })().then(result => {
+        // Save to caches (even if null, to prevent re-fetching known missing songs)
+        const entry = { ...result, timestamp: Date.now() };
+        memoryCache.set(normalizedKey, entry);
+        putToDB(normalizedKey, entry);
       
-      pendingRequests.delete(cacheKey);
-      return result;
-  });
-
-  pendingRequests.set(cacheKey, processPromise);
-  return processPromise;
-};
-
-export const prefetchMetadata = (songs: {artist: string, title: string}[]) => {
-    // Only prefetch if passed array is valid
-    if (!songs || songs.length === 0) return;
-
-    songs.forEach((s, index) => {
-        // Stagger requests slightly to prevent browser queue lockup
-        setTimeout(() => {
-            fetchSongMetadata(s.artist, s.title);
-        }, index * 100);
+        pendingRequests.delete(normalizedKey);
+        return result;
     });
+
+    pendingRequests.set(normalizedKey, processPromise);
+    return processPromise;
 };

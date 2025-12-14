@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
 import { SongData } from './types';
 import { scrapeWikipediaData } from './services/wikipediaService'; 
-import { prefetchMetadata } from './services/itunesService';
 import { exportToExcel, exportToPDF, exportForTransfer } from './services/exportService';
 import {
   initiateSpotifyAuth,
@@ -412,8 +411,6 @@ const App: React.FC = () => {
                 const parsedSongs = JSON.parse(cachedData);
                 setSongs(parsedSongs);
                 setLoading(false);
-                // Trigger background prefetch for top 50 only
-                prefetchMetadata(parsedSongs.slice(0, 50));
                 return;
             }
         }
@@ -521,8 +518,6 @@ const App: React.FC = () => {
 
         setSongs(finalSongs);
         setLoading(false);
-        // Trigger background prefetch for TOP 50 only
-        prefetchMetadata(finalSongs.slice(0, 50));
       } catch (error) {
         console.error("Error initializing data:", error);
         setLoadingStatus("Fout bij het laden van data. Probeer de pagina te vernieuwen.");

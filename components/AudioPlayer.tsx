@@ -10,7 +10,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = memo(({ previewUrl, mini = false
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -19,7 +18,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = memo(({ previewUrl, mini = false
     // Reset when URL changes
     setIsPlaying(false);
     setHasError(false);
-    setRetryCount(0);
 
     if (previewUrl) {
         audio.load();
@@ -32,29 +30,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = memo(({ previewUrl, mini = false
     const handleError = () => {
         const err = audio.error;
         console.warn("Audio playback error:", err);
-        
-        // Endless retry logic for network errors
-        // We assume eventually the connection or rate limit clears up
-        const nextRetry = retryCount + 1;
-        setRetryCount(nextRetry);
-        
-        // Calculate delay: 1s, 2s, 4s... capped at 10s
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-        
-        console.log(`Retrying audio in ${delay}ms (Attempt ${nextRetry})`);
-
-        setTimeout(() => {
-            if (audioRef.current && previewUrl) {
-                // Force reload of the resource
-                audioRef.current.src = previewUrl; 
-                audioRef.current.load();
-                // If it was playing before error, try to resume? 
-                // Better not to auto-play to avoid startling user, just fix the buffer.
-                setHasError(false);
-            }
-        }, delay);
-        
-        // While waiting, show error state slightly
         setHasError(true);
     };
     
@@ -80,7 +55,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = memo(({ previewUrl, mini = false
       audio.removeEventListener('canplay', handleCanPlay);
       audio.removeEventListener('loadeddata', handleCanPlay);
     };
-  }, [previewUrl, retryCount]);
+  }, [previewUrl]);
 
   const togglePlay = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
