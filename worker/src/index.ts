@@ -63,6 +63,16 @@ export default {
         }
         return await handleAnalyze(artist, title, env, corsHeaders);
       }
+
+      // 7. YouTube Search
+      if (path === '/youtube/search') {
+        const artist = url.searchParams.get('artist');
+        const title = url.searchParams.get('title');
+        if (!artist || !title) {
+          return new Response('Missing artist or title', { status: 400, headers: corsHeaders });
+        }
+        return await handleYouTubeSearch(artist, title, env, corsHeaders);
+      }
  
       return new Response('Not Found', { status: 404, headers: corsHeaders });
  
@@ -401,5 +411,63 @@ async function handleAnalyze(artist, title, env, corsHeaders) {
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
+  }
+}
+
+async function handleYouTubeSearch(artist, title, env, corsHeaders) {
+  if (!env.YOUTUBE_API_KEY) {
+    return new Response(JSON.stringify({ error: 'YouTube API key not configured' }), { 
+      status: 500, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
+  }
+
+  const cacheKey = `youtube:${artist.toLowerCase()}:${title.toLowerCase()}`.replace(/\s+/g, '-');
+  
+  // 1. Try Cache
+  const cached = await env.ITUNES_CACHE.get(cacheKey, 'json');
+  if (cached) {
+    return new Response(JSON.stringify(cached), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'HIT' }
+    });
+  }
+
+  // 2. Fetch from YouTube API
+  // Search query: Artist Title Top 2000 a gogo
+  const q = `${artist} ${title} Top 2000 a gogo`;
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=1&key=${env.YOUTUBE_API_KEY}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`YouTube API error: ${response.status} ${errText}`);
+    }
+
+    const data = await response.json();
+    const item = data.items?.[0];
+
+    if (!item) {
+        return new Response('Not Found', { status: 404, headers: corsHeaders });
+    }
+
+    const result = {
+        videoId: item.id.videoId,
+        title: item.snippet.title,
+        thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url
+    };
+
+    // 3. Store in Cache (30 days)
+    await env.ITUNES_CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 60 * 60 * 24 * 30 });
+
+    return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
+    });
+
+  } catch (err) {
+      return new Response(JSON.stringify({ error: err.message }), { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
   }
 }
