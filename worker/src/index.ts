@@ -1,3 +1,6 @@
+import { Env } from './types'; // Assuming types file exists or implicit
+// No types file visible, assuming JS/TS mix is handled by environment.
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -24,12 +27,16 @@ export default {
  
       // 2. iTunes Metadata
       if (path === '/itunes') {
+        if (request.method === 'POST') {
+             return await handleiTunesPost(request, env, corsHeaders);
+        }
+
         const artist = url.searchParams.get('artist');
         const title = url.searchParams.get('title');
         if (!artist || !title) {
           return new Response('Missing artist or title', { status: 400, headers: corsHeaders });
         }
-        return await handleiTunes(artist, title, env, corsHeaders);
+        return await handleiTunesGet(artist, title, env, corsHeaders);
       }
  
       // 3. Auth Login
@@ -141,8 +148,32 @@ async function handleNews(env, corsHeaders) {
     headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
   });
 }
+
+async function handleiTunesPost(request, env, corsHeaders) {
+    try {
+        const body = await request.json();
+        const { artist, title, coverUrl, previewUrl } = body;
+
+        if (!artist || !title) {
+            return new Response('Missing artist or title', { status: 400, headers: corsHeaders });
+        }
+
+        const cacheKey = `itunes-v2:${artist.toLowerCase()}:${title.toLowerCase()}`.replace(/\s+/g, '-');
+        
+        // Store in KV
+        // 7 days expiration
+        const data = { coverUrl, previewUrl };
+        await env.ITUNES_CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: 60 * 60 * 24 * 7 });
+
+        return new Response(JSON.stringify({ success: true }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+    } catch (e) {
+        return new Response(`Error: ${e.message}`, { status: 500, headers: corsHeaders });
+    }
+}
  
-async function handleiTunes(artist, title, env, corsHeaders) {
+async function handleiTunesGet(artist, title, env, corsHeaders) {
   // Changed cache key prefix to 'itunes-v2' to invalidate old cache
   const cacheKey = `itunes-v2:${artist.toLowerCase()}:${title.toLowerCase()}`.replace(/\s+/g, '-');
   
@@ -154,48 +185,9 @@ async function handleiTunes(artist, title, env, corsHeaders) {
     });
   }
 
-  // 2. Fetch iTunes (with Retries/Queries)
-  const clean = (str) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
-  const queries = [
-    `${artist} ${title}`,
-    `${title} ${artist}`,
-    title
-  ];
-  
-  let data = { coverUrl: null, previewUrl: null };
-  
-  for (const q of queries) {
-    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=1&country=NL`;
-    try {
-        const resp = await fetch(url, {
-            headers: {
-                'User-Agent': 'Top2000Allertijden/1.0 (Cloudflare Worker; +https://top2000allertijden.nl)'
-            }
-        });
-        if (resp.ok) {
-            const json = await resp.json();
-            if (json.results && json.results.length > 0) {
-                const track = json.results[0];
-                data = {
-                    coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100', '600x600') : null,
-                    previewUrl: track.previewUrl
-                };
-                break; // Found it
-            }
-        }
-    } catch (e) {
-        console.error(`Failed to fetch iTunes for query "${q}":`, e);
-    }
-  }
-
-  // 3. Store Cache (Cache misses too to prevent hammering)
-  // Cache hits for 7 days, misses for 5 minutes (was 1 day)
-  const ttl = data.coverUrl ? 60 * 60 * 24 * 7 : 60 * 5; 
-  await env.ITUNES_CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: ttl });
-
-  return new Response(JSON.stringify(data), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
-  });
+  // 2. Return 404 to trigger client-side fetch
+  // We no longer fetch server-side because it's prone to blocking
+  return new Response(null, { status: 404, headers: { ...corsHeaders, 'X-Cache': 'MISS' } });
 }
  
 function handleAuthLogin(service, env) {
