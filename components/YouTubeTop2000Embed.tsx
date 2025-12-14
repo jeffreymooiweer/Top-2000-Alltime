@@ -42,31 +42,32 @@ export function YouTubeTop2000Embed({
   }, [artist, title]);
 
   const src = useMemo(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
     // If we have a specific video ID, use it
     if (videoId) {
       const params = new URLSearchParams({
         playsinline: "1",
         rel: "0",
+        origin,
       });
       if (autoplay) params.set("autoplay", "1");
-      return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+      return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
     }
 
-    // Fallback to search list embed if no video ID found (or while loading to show something, but maybe better to show spinner)
-    // Actually, while loading, let's just show a placeholder or spinner.
-    // If failed (videoId is null and not loading), use the fallback.
-    
+    // Fallback to search list embed if no video ID found
     const q = buildQuery(artist, title);
     const params = new URLSearchParams({
       listType: "search",
       list: q,
+      playsinline: "1",
+      rel: "0",
+      origin,
     });
 
     if (autoplay) params.set("autoplay", "1");
-    params.set("playsinline", "1");
-    params.set("rel", "0");
 
-    return `https://www.youtube.com/embed?${params.toString()}`;
+    return `https://www.youtube-nocookie.com/embed?${params.toString()}`;
   }, [artist, title, autoplay, videoId]);
 
   // key ensures iframe resets
