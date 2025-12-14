@@ -143,7 +143,8 @@ async function handleNews(env, corsHeaders) {
 }
  
 async function handleiTunes(artist, title, env, corsHeaders) {
-  const cacheKey = `itunes:${artist.toLowerCase()}:${title.toLowerCase()}`.replace(/\s+/g, '-');
+  // Changed cache key prefix to 'itunes-v2' to invalidate old cache
+  const cacheKey = `itunes-v2:${artist.toLowerCase()}:${title.toLowerCase()}`.replace(/\s+/g, '-');
   
   // 1. Try Cache
   const cached = await env.ITUNES_CACHE.get(cacheKey, 'json');
@@ -152,7 +153,7 @@ async function handleiTunes(artist, title, env, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'HIT' }
     });
   }
- 
+
   // 2. Fetch iTunes (with Retries/Queries)
   const clean = (str) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
   const queries = [
@@ -186,12 +187,12 @@ async function handleiTunes(artist, title, env, corsHeaders) {
         console.error(`Failed to fetch iTunes for query "${q}":`, e);
     }
   }
- 
+
   // 3. Store Cache (Cache misses too to prevent hammering)
-  // Cache hits for 7 days, misses for 1 day
-  const ttl = data.coverUrl ? 60 * 60 * 24 * 7 : 60 * 60 * 24; 
+  // Cache hits for 7 days, misses for 5 minutes (was 1 day)
+  const ttl = data.coverUrl ? 60 * 60 * 24 * 7 : 60 * 5; 
   await env.ITUNES_CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: ttl });
- 
+
   return new Response(JSON.stringify(data), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
   });
