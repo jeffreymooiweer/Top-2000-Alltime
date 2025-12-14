@@ -1,3 +1,4 @@
+import { API_BASE, normalizeString } from './config';
 
 interface MetadataCacheEntry {
     coverUrl: string | null;
@@ -59,21 +60,6 @@ const putToDB = async (key: string, data: MetadataCacheEntry) => {
     }
 };
 
-// --- Search Helpers ---
-
-const cleanString = (str: string) => {
-    return str.toLowerCase()
-        .replace(/\(.*\)/g, '') 
-        .replace(/\[.*\]/g, '') 
-        .replace(/ - .*/, '') 
-        .replace(/ ft\. .*/, '')
-        .replace(/ feat\. .*/, '')
-        .replace(/ featuring .*/, '')
-        .replace(/,/g, '')
-        .replace(/'/g, '')
-        .trim();
-};
-
 // --- Main Fetch Function ---
 
 export const fetchSongMetadata = async (artist: string, title: string): Promise<{ coverUrl: string | null; previewUrl: string | null }> => {
@@ -100,78 +86,40 @@ export const fetchSongMetadata = async (artist: string, title: string): Promise<
       }
 
       // Network Fetch Strategy
-      const queries = [
-          `${cleanString(artist)} ${cleanString(title)}`,
-          `${cleanString(title)} ${cleanString(artist)}`,
-          `${cleanString(title)}`
-      ];
-      // Deduplicate queries
-      const uniqueQueries = [...new Set(queries)];
-
-      const MAX_RETRIES = 50; 
-      let currentDelay = 200; 
-
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-          let hitRateLimit = false;
-          let technicalError = false;
-
-          for (const query of uniqueQueries) {
-              const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=1&country=NL`;
-              
-              try {
-                  const response = await fetch(url);
-                  
-                  // Rate Limit Detection
-                  if (response.status === 429 || response.status === 403) {
-                      throw new Error('RateLimit');
-                  }
-                  
-                  if (!response.ok) {
-                      // Server error (500), try next query but mark as tech error
-                      technicalError = true;
-                      continue; 
-                  }
-
-                  const data = await response.json();
-                  if (data.results && data.results.length > 0) {
-                      const track = data.results[0];
-                      return {
-                          coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb', '600x600bb') : null,
-                          previewUrl: track.previewUrl
-                      };
-                  }
-                  
-                  // If we are here: 200 OK, but results array is empty.
-                  // Try the next query variation in the loop.
-                  
-              } catch (err: any) {
-                  if (err.message === 'RateLimit') {
-                      hitRateLimit = true;
-                      break; // Break the query loop, force a sleep and retry
-                  }
-                  // Network error? Mark and try next query.
-                  technicalError = true;
+      try {
+          const key = `${normalizeString(artist)}|${normalizeString(title)}`;
+          
+          // 1. Try mapped endpoint
+          const mappedUrl = `${API_BASE}/itunes/mapped?key=${encodeURIComponent(key)}`;
+          const mappedResponse = await fetch(mappedUrl);
+          
+          if (mappedResponse.ok) {
+              const data = await mappedResponse.json();
+              if (data.artworkUrl || data.previewUrl) {
+                  return {
+                      coverUrl: data.artworkUrl || null,
+                      previewUrl: data.previewUrl || null
+                  };
               }
           }
 
-          // DECISION POINT:
-          // If we hit a Rate Limit OR a Technical Error (like offline), we should Retry.
-          if (hitRateLimit || technicalError) {
-              // Backoff Logic
-              const jitter = Math.random() * 500;
-              const sleepTime = currentDelay + jitter;
-              await new Promise(resolve => setTimeout(resolve, sleepTime));
-              currentDelay = Math.min(currentDelay * 1.5, 10000);
-              continue; // Retry outer loop
+          // 2. Try resolve endpoint if mapped missed
+          const resolveUrl = `${API_BASE}/itunes/resolve?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`;
+          const resolveResponse = await fetch(resolveUrl);
+          
+          if (resolveResponse.ok) {
+              const data = await resolveResponse.json();
+              return {
+                  coverUrl: data.artworkUrl || null,
+                  previewUrl: data.previewUrl || null
+              };
           }
 
-          // If we are here, it means we tried all queries, got valid responses (200 OK),
-          // but found ZERO results for any of them.
-          // This song is not in iTunes. Do NOT retry.
-          break; 
+      } catch (err) {
+          console.error("Metadata fetch error:", err);
       }
 
-      // If we fall through here, either max retries reached OR not found.
+      // Not found or error
       return { coverUrl: null, previewUrl: null };
 
   })().then(result => {

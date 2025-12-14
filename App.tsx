@@ -17,7 +17,6 @@ import {
   isSpotifyAuthenticated,
   isDeezerAuthenticated,
   isYouTubeAuthenticated,
-  SpotifyPlaylistResult,
 } from './services/streamingService';
 import SongCard from './components/SongCard';
 import NewsFeed from './components/NewsFeed';
@@ -170,13 +169,11 @@ const App: React.FC = () => {
       // Mark as processed immediately to prevent double processing
       spotifyCallbackProcessed.current = true;
       
-      // Try to extract code from hash first, then from query string
       let code: string | null = null;
       let error: string | null = null;
       
       // Check hash for callback
       if (hash.includes('spotify-callback')) {
-        // Format could be: #spotify-callback?code=... or #spotify-callback&code=...
         const hashWithoutHash = hash.substring(1); // Remove #
         const hashParts = hashWithoutHash.split('?');
         if (hashParts.length > 1) {
@@ -212,7 +209,6 @@ const App: React.FC = () => {
       }
       
       if (code) {
-        // Show loading indicator
         setIsCreatingPlaylist(true);
         
         handleSpotifyCallback(code)
@@ -226,9 +222,11 @@ const App: React.FC = () => {
               try {
                 const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
                 const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
-                const playlistUrl = await createSpotifyPlaylist(processedSongs, playlistName);
-                alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
-                window.open(playlistUrl, '_blank');
+                const result = await createSpotifyPlaylist(processedSongs, playlistName);
+                
+                // If the backend returns the full result structure, we can display it
+                // Assuming it matches: { playlistUrl, addedCount, failedSongs }
+                setPlaylistResult(result);
               } catch (error: any) {
                 alert(`Fout bij aanmaken playlist: ${error.message}`);
               } finally {
@@ -245,83 +243,64 @@ const App: React.FC = () => {
             alert(`Fout bij koppelen Spotify account: ${err.message || 'Onbekende fout. Controleer de console voor meer details.'}`);
             window.location.hash = '';
             window.history.replaceState(null, '', window.location.pathname);
-            spotifyCallbackProcessed.current = false; // Reset on error so user can retry
+            spotifyCallbackProcessed.current = false;
           });
       } else if (hash.includes('spotify-callback')) {
-        // Hash contains spotify-callback but no code - might be an error
         console.warn('Spotify callback detected but no code found in URL:', hash);
         setIsCreatingPlaylist(false);
         alert('Geen autorisatiecode ontvangen van Spotify. Probeer het opnieuw.');
         window.location.hash = '';
         window.history.replaceState(null, '', window.location.pathname);
-        spotifyCallbackProcessed.current = false; // Reset on error
+        spotifyCallbackProcessed.current = false;
       }
     }
     
-    // Deezer callback
-    if (hash.includes('deezer-callback') || hash.includes('access_token')) {
-      // Deezer uses implicit flow - token is in hash fragment
-      // Format could be: #deezer-callback#access_token=... or #access_token=...
-      // Find the part with access_token or error
-      const hashParts = hash.split('#').filter(Boolean);
-      let queryString = hash.substring(1); // Default to entire hash without #
+    // Deezer callback (Updated for Code Flow)
+    const deezerCode = searchParams.get('code');
+    // We check if it's a deezer callback either by hash (legacy/redirect_uri) or just presence of code if it's the only one expected?
+    // Since Spotify and YouTube also use code, we rely on hash OR if we can distinguish via state (not implemented yet).
+    // Assuming redirect URI ends with #deezer-callback so hash includes it.
+    if (hash.includes('deezer-callback') || (deezerCode && !hash.includes('spotify') && !hash.includes('youtube') && !spotifyCallbackProcessed.current)) {
       
-      for (const part of hashParts) {
-        if (part.includes('access_token') || part.includes('error_reason')) {
-          queryString = part;
-          break;
-        }
-      }
-      
-      const params = new URLSearchParams(queryString);
-      const accessToken = params.get('access_token');
-      const expires = params.get('expires');
-      const error = params.get('error_reason');
-      
-      if (error) {
-        alert(`Deezer authenticatie mislukt: ${error}`);
-        window.location.hash = '';
-        return;
-      }
-      
-      if (accessToken && expires) {
-        handleDeezerCallback(accessToken, parseInt(expires));
-        window.location.hash = '';
-        setStreamingSetupService(null);
-        
-        // Automatically create playlist after successful authentication
-        if (processedSongs.length > 0) {
-          setIsCreatingPlaylist(true);
-          (async () => {
-            try {
-              const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
-              const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
-              const playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
-              alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
-              window.open(playlistUrl, '_blank');
-            } catch (error: any) {
-              alert(`Fout bij aanmaken playlist: ${error.message}`);
-            } finally {
-              setIsCreatingPlaylist(false);
+      if (deezerCode) {
+        handleDeezerCallback(deezerCode)
+          .then(async () => {
+            window.location.hash = '';
+            window.history.replaceState(null, '', window.location.pathname);
+            setStreamingSetupService(null);
+            
+            if (processedSongs.length > 0) {
+              setIsCreatingPlaylist(true);
+              try {
+                const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
+                const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
+                const playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
+                alert(`Playlist succesvol aangemaakt! Open de playlist: ${playlistUrl}`);
+                window.open(playlistUrl, '_blank');
+              } catch (error: any) {
+                alert(`Fout bij aanmaken playlist: ${error.message}`);
+              } finally {
+                setIsCreatingPlaylist(false);
+              }
+            } else {
+              alert('Deezer account succesvol gekoppeld! Je kunt nu een playlist aanmaken via het download menu.');
             }
-          })();
-        } else {
-          alert('Deezer account succesvol gekoppeld! Je kunt nu een playlist aanmaken via het download menu.');
-        }
+          })
+          .catch(err => {
+             alert(`Deezer authenticatie mislukt: ${err.message}`);
+             window.location.hash = '';
+             window.history.replaceState(null, '', window.location.pathname);
+          });
       }
     }
     
-    // YouTube callback - Google OAuth uses query parameters, not hash fragments
+    // YouTube callback
     const youtubeCode = searchParams.get('code');
     const youtubeError = searchParams.get('error');
-    const youtubeState = searchParams.get('state');
     
-    // Check if this is a YouTube callback (either via query param or hash for backwards compatibility)
-    if (youtubeCode || youtubeError || hash.includes('youtube-callback')) {
-      // For Google OAuth, code comes via query parameters
+    if ((youtubeCode || youtubeError || hash.includes('youtube-callback')) && !hash.includes('spotify') && !hash.includes('deezer')) {
       if (youtubeError) {
         alert(`YouTube authenticatie mislukt: ${youtubeError}`);
-        // Clean up URL
         window.history.replaceState(null, '', window.location.pathname);
         return;
       }
@@ -329,11 +308,9 @@ const App: React.FC = () => {
       if (youtubeCode) {
         handleYouTubeCallback(youtubeCode)
           .then(async () => {
-            // Clean up URL - remove query parameters
             window.history.replaceState(null, '', window.location.pathname);
             setStreamingSetupService(null);
             
-            // Automatically create playlist after successful authentication
             if (processedSongs.length > 0) {
               setIsCreatingPlaylist(true);
               try {
@@ -351,49 +328,8 @@ const App: React.FC = () => {
           })
           .catch((err) => {
             alert(`Fout bij koppelen: ${err.message}`);
-            // Clean up URL
             window.history.replaceState(null, '', window.location.pathname);
           });
-      } else if (hash.includes('youtube-callback')) {
-        // Backwards compatibility: handle old hash-based callback
-        const hashParts = hash.split('?');
-        const queryString = hashParts.length > 1 ? hashParts[1] : '';
-        const params = new URLSearchParams(queryString);
-        const code = params.get('code');
-        const error = params.get('error');
-        
-        if (error) {
-          alert(`YouTube authenticatie mislukt: ${error}`);
-          window.location.hash = '';
-          return;
-        }
-        
-        if (code) {
-          handleYouTubeCallback(code)
-            .then(async () => {
-              window.location.hash = '';
-              setStreamingSetupService(null);
-              
-              if (processedSongs.length > 0) {
-                setIsCreatingPlaylist(true);
-                try {
-                  const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
-                  const playlistName = `Top 2000 ${yearLabel} - ${new Date().toLocaleDateString('nl-NL')}`;
-                  const result = await createYouTubePlaylist(processedSongs, playlistName);
-                  setPlaylistResult(result);
-                } catch (error: any) {
-                  setIsCreatingPlaylist(false);
-                  alert(`Fout bij aanmaken playlist: ${error.message}`);
-                }
-              } else {
-                alert('YouTube account succesvol gekoppeld! Je kunt nu een playlist aanmaken via het download menu.');
-              }
-            })
-            .catch((err) => {
-              alert(`Fout bij koppelen: ${err.message}`);
-              window.location.hash = '';
-            });
-        }
       }
     }
   }, [processedSongs, selectedYear]);
@@ -433,10 +369,6 @@ const App: React.FC = () => {
 
         setLoadingStatus(`Scores berekenen voor ${rawSongs.length} nummers...`);
 
-        // 1. Determine the effective data range
-        // We need to check if the latest year is "complete".
-        // If only the Top 10 is known for 2025, we must NOT include it in All-Time calc
-        // or it will unfairly boost those 10 songs by +2000 points.
         let maxYear = 0;
         let maxYearCount = 0;
         
@@ -451,66 +383,49 @@ const App: React.FC = () => {
             
             if (allYears.size > 0) {
                maxYear = Math.max(...Array.from(allYears));
-               // Count how many songs actually have a ranking for this maxYear
                maxYearCount = rawSongs.filter(s => s.rankings[maxYear.toString()] !== undefined && s.rankings[maxYear.toString()] !== null).length;
             }
         }
 
-        // Threshold: If fewer than 1500 songs are known for the year, treat it as partial/incomplete.
-        // Top 2000 should have... 2000.
         const isLatestYearIncomplete = maxYearCount < 1500;
         const effectiveAllTimeYear = isLatestYearIncomplete ? maxYear - 1 : maxYear;
         
         console.log(`Max Year found: ${maxYear} (${maxYearCount} entries). Using ${effectiveAllTimeYear} as cutoff for All-Time list.`);
 
-        // Calculate scores
         let scoredSongs = rawSongs.map(song => {
-          // Calculate All-Time score up to the effective safe year
           const totalScore = calculateAllTimeScore(song, effectiveAllTimeYear);
-          
-          // Calculate "Previous" score (One year before the effective year)
-          // This allows us to compare "2023 All Time" vs "2022 All Time" properly
           const previousTotalScore = calculateAllTimeScore(song, effectiveAllTimeYear - 1);
           
           return {
               ...song,
               totalScore,
-              previousTotalScore, // Temporary field for sorting
+              previousTotalScore,
               coverUrl: undefined, 
               previewUrl: undefined
           };
         });
 
-        // 1. Assign All-Time Ranks (Current Safe Year)
         scoredSongs.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
         scoredSongs = scoredSongs.map((song, index) => ({
           ...song,
           allTimeRank: index + 1
         }));
 
-        // 2. Assign All-Time Ranks (Previous Safe Year)
-        // We sort by the score calculated for the year prior
         const prevSorted = [...scoredSongs].sort((a, b) => (b.previousTotalScore || 0) - (a.previousTotalScore || 0));
-        
-        // Create a map to quickly look up the previous rank
         const prevRankMap = new Map<string, number>();
         prevSorted.forEach((song, index) => {
-            // Only assign a previous rank if they actually had points previously
             if ((song.previousTotalScore || 0) > 0) {
                 prevRankMap.set(song.id, index + 1);
             }
         });
 
-        // Merge back into main array and cleanup temporary field
         const finalSongs = scoredSongs.map(song => {
-            const { previousTotalScore, ...rest } = song; // Remove temp field
+            const { previousTotalScore, ...rest } = song; 
             return {
                 ...rest,
-                previousAllTimeRank: prevRankMap.get(song.id) // undefined if new entry or 0 points previously
+                previousAllTimeRank: prevRankMap.get(song.id)
             };
         });
-
-        // Initial Sort is already done (by totalScore)
 
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify(finalSongs));
@@ -521,7 +436,6 @@ const App: React.FC = () => {
 
         setSongs(finalSongs);
         setLoading(false);
-        // Trigger background prefetch for TOP 50 only
         prefetchMetadata(finalSongs.slice(0, 50));
       } catch (error) {
         console.error("Error initializing data:", error);
@@ -533,19 +447,15 @@ const App: React.FC = () => {
     initData();
   }, []);
 
-
-  // Reset infinite scroll when filters change
   useEffect(() => {
     setVisibleCount(BATCH_SIZE);
     if (debouncedSearchQuery) {
-        // Only scroll if we are deep down, otherwise it feels jumpy
         if (window.scrollY > 500) {
             window.scrollTo({ top: 400, behavior: 'smooth' });
         }
     }
   }, [debouncedSearchQuery, selectedYear]);
 
-  // Infinite Scroll Observer
   useEffect(() => {
     if (loading || processedSongs.length === 0) return;
 
@@ -558,7 +468,7 @@ const App: React.FC = () => {
           setVisibleCount((prev) => Math.min(prev + BATCH_SIZE, processedSongs.length));
         }
       },
-      { threshold: 0.1, rootMargin: '400px' } // Increased rootMargin for earlier loading
+      { threshold: 0.1, rootMargin: '400px' }
     );
 
     observer.observe(target);
@@ -570,7 +480,6 @@ const App: React.FC = () => {
 
   const visibleSongs = useMemo(() => processedSongs.slice(0, visibleCount), [processedSongs, visibleCount]);
 
-  // Derived state for Modal (Other songs by artist)
   const otherSongsBySelectedArtist = useMemo(() => {
     if (!selectedSong) return [];
     return songs
@@ -586,7 +495,6 @@ const App: React.FC = () => {
     setSelectedSong(null);
   }, []);
 
-  // Derived state for Navigation
   const selectedSongIndex = useMemo(() => {
     if (!selectedSong) return -1;
     return processedSongs.findIndex(s => s.id === selectedSong.id);
@@ -651,7 +559,6 @@ const App: React.FC = () => {
   }, [processedSongs, selectedYear]);
 
   const handleStreamingExport = async (service: 'spotify' | 'deezer' | 'youtube') => {
-    // Check if configured
     let config;
     if (service === 'spotify') {
       config = isSpotifyAuthenticated();
@@ -662,13 +569,11 @@ const App: React.FC = () => {
     }
 
     if (!config) {
-      // Show setup modal
       setStreamingSetupService(service);
       setIsDownloadOpen(false);
       return;
     }
 
-    // Check if authenticated, if not initiate auth
     if (service === 'spotify' && !isSpotifyAuthenticated()) {
       await initiateSpotifyAuth();
       return;
@@ -680,7 +585,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // Create playlist
     setIsCreatingPlaylist(true);
     setPlaylistProgress({ current: 0, total: processedSongs.length });
     setPlaylistResult(null);
@@ -697,7 +601,6 @@ const App: React.FC = () => {
           (current, total) => setPlaylistProgress({ current, total })
         );
         setPlaylistResult(result);
-        // Don't close modal yet - show result modal instead
       } else if (service === 'deezer') {
         const playlistUrl = await createDeezerPlaylist(processedSongs, playlistName);
         setIsCreatingPlaylist(false);

@@ -1,14 +1,7 @@
-// services/geminiService.ts
-// Gebruikt Groq's OpenAI-compatibele Chat Completions API vanuit de browser.
-
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+import { API_BASE } from './config';
 
 // Snel én relatief goedkoop model
 const GROQ_MODEL = "llama-3.1-8b-instant";
-
-// ⚠️ LET OP: alles wat je hier invult is publiek zichtbaar in de browser.
-// Gebruik bij voorkeur een key die je kunt weggooien en hou rekening met mogelijk misbruik.
-const GROQ_API_KEY = "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"
 
 const getFallbackAnalysis = (artist: string, title: string) => {
     return `"${title}" van ${artist} is een vaste waarde in de Top 2000. Het nummer roept bij veel luisteraars nostalgische gevoelens op en wordt jaarlijks door duizenden mensen gekozen als een van de beste nummers aller tijden.`;
@@ -21,21 +14,15 @@ export const getSongAnalysis = async (
   const fallback = getFallbackAnalysis(artist, title);
 
   try {
-    if (!GROQ_API_KEY || GROQ_API_KEY === "PLAATS_HIER_JE_GROQ_API_KEY") {
-      console.warn("Groq API key is niet ingesteld.");
-      return fallback;
-    }
-
     const prompt =
       `Schrijf in het Nederlands een korte, enthousiaste uitleg (max 80 woorden) ` +
       `over waarom het nummer "${title}" van "${artist}" zo populair is in de Top 2000. ` +
       `Focus op emotie, nostalgie, mee-zingen of historische betekenis. En deel triviant weetjes over deze track.`;
 
-    const response = await fetch(GROQ_API_URL, {
+    const response = await fetch(`${API_BASE}/ai/groq`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
         model: GROQ_MODEL,
@@ -56,13 +43,7 @@ export const getSongAnalysis = async (
     });
 
     if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      console.error("Groq API error status:", response.status, errText);
-      
-      if (response.status === 401) {
-        console.warn("⚠️ De Groq API key is waarschijnlijk verlopen of ongeldig. Update GROQ_API_KEY in services/geminiService.ts.");
-      }
-      
+      console.error("Backend AI error status:", response.status);
       return fallback;
     }
 
@@ -79,7 +60,7 @@ export const getSongAnalysis = async (
 
     return text;
   } catch (error) {
-    console.error("Groq API fout:", error);
+    console.error("Backend AI fout:", error);
     return fallback;
   }
 };
