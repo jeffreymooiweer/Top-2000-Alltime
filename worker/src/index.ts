@@ -101,8 +101,23 @@ async function handleNews(env, corsHeaders) {
  
     // Image extraction
     let imageUrl = null;
+    
+    // 1. Try enclosure
     const enclosureMatch = itemContent.match(/<enclosure.*?url="(.*?)".*?>/);
-    if (enclosureMatch) imageUrl = enclosureMatch[1];
+    if (enclosureMatch) {
+        imageUrl = enclosureMatch[1];
+    } else {
+        // 2. Try media:content
+        const mediaMatch = itemContent.match(/<media:content.*?url="(.*?)".*?>/);
+        if (mediaMatch) {
+            imageUrl = mediaMatch[1];
+        } else {
+            // 3. Try img tag in description (before stripping)
+            const rawDescription = getTag('description'); 
+            const imgMatch = rawDescription.match(/<img.*?src="(.*?)".*?>/);
+            if (imgMatch) imageUrl = imgMatch[1];
+        }
+    }
     
     // Filter logic (Top 2000 related)
     const fullText = `${title} ${description} ${category}`.toLowerCase();
@@ -117,7 +132,7 @@ async function handleNews(env, corsHeaders) {
     }
   }
  
-  const result = items.slice(0, 5); // Limit to 5
+  const result = items.slice(0, 3); // Limit to 3
  
   // 4. Store in Cache
   await env.NEWS_CACHE.put(CACHE_KEY, JSON.stringify(result), { expirationTtl: CACHE_TTL });
@@ -156,7 +171,7 @@ async function handleiTunes(artist, title, env, corsHeaders) {
       if (json.results && json.results.length > 0) {
         const track = json.results[0];
         data = {
-          coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb', '600x600bb') : null,
+          coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100', '600x600') : null,
           previewUrl: track.previewUrl
         };
         break; // Found it
@@ -178,7 +193,8 @@ function handleAuthLogin(service, env) {
   let authUrl = '';
   const state = Math.random().toString(36).substring(7); // Simple state
   
-  const redirectUri = `${env.REDIRECT_URI}/auth/${service}/callback`.replace('//auth', '/auth');
+  const redirectUrlObj = new URL(`/auth/${service}/callback`, env.REDIRECT_URI);
+  const redirectUri = redirectUrlObj.toString();
  
   if (service === 'spotify') {
     const scope = 'playlist-modify-public playlist-modify-private user-read-private user-read-email';
@@ -216,7 +232,8 @@ async function handleAuthCallback(request, service, env) {
     return Response.redirect(`${frontendUrl}/?error=${error || 'no_code'}`, 302);
   }
 
-  const redirectUri = `${env.REDIRECT_URI}/auth/${service}/callback`.replace('//auth', '/auth');
+  const redirectUrlObj = new URL(`/auth/${service}/callback`, env.REDIRECT_URI);
+  const redirectUri = redirectUrlObj.toString();
 
   let tokenData = {};
 
