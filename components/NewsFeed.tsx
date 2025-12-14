@@ -36,7 +36,7 @@ const NewsFeed: React.FC = memo(() => {
       ) : (
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 md:px-0">
-        {news.map((item, idx) => (
+        {news.slice(0, 3).map((item, idx) => (
           <a 
             key={idx} 
             href={item.link} 
