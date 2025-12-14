@@ -24,6 +24,8 @@ export const fetchSongMetadata = async (artist: string, title: string): Promise<
           if (response.ok) {
               const data = await response.json();
               return data;
+          } else {
+              console.error(`Metadata fetch failed: ${response.status} ${response.statusText} for ${artist} - ${title}`);
           }
       } catch (e) {
           console.error("Error fetching metadata", e);
