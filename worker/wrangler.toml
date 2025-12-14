@@ -2,14 +2,14 @@ name = "top2000-api"
 main = "src/index.ts"
 compatibility_date = "2023-12-01"
 
-# KV Namespaces (Fill in IDs from dashboard)
+# KV Namespaces
 [[kv_namespaces]]
 binding = "ITUNES_CACHE"
-id = "" # TODO: Add ID
+id = "38c2a8154d94481ba6a37895c6d36d10"
 
 [[kv_namespaces]]
 binding = "NEWS_CACHE"
-id = "" # TODO: Add ID
+id = "6eaa7d2342ae45679a854d54e677df07"
 
 [vars]
 REDIRECT_URI = "https://api.top2000allertijden.nl"
