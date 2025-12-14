@@ -56,6 +56,16 @@ export default {
         const service = path.split('/')[2];
         return await handleAuthRefresh(request, service, env, corsHeaders);
       }
+
+      // 6. Analyze Song (Groq)
+      if (path === '/analyze') {
+        const artist = url.searchParams.get('artist');
+        const title = url.searchParams.get('title');
+        if (!artist || !title) {
+          return new Response('Missing artist or title', { status: 400, headers: corsHeaders });
+        }
+        return await handleAnalyze(artist, title, env, corsHeaders);
+      }
  
       return new Response('Not Found', { status: 404, headers: corsHeaders });
  
@@ -332,4 +342,67 @@ async function handleAuthRefresh(request, service, env, corsHeaders) {
   return new Response(JSON.stringify(tokenData), { 
     headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
   });
+}
+
+async function handleAnalyze(artist, title, env, corsHeaders) {
+  if (!env.GROQ_API_KEY) {
+    return new Response(JSON.stringify({ error: 'Groq API key not configured' }), { 
+      status: 500, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
+  }
+
+  const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+  const GROQ_MODEL = "llama-3.1-8b-instant";
+
+  const prompt =
+    `Schrijf in het Nederlands een korte, enthousiaste uitleg (max 80 woorden) ` +
+    `over waarom het nummer "${title}" van "${artist}" zo populair is in de Top 2000. ` +
+    `Focus op emotie, nostalgie, mee-zingen of historische betekenis. En deel triviant weetjes over deze track.`;
+
+  try {
+    const response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Je bent een Nederlandse muziekjournalist die korte, vlotte teksten schrijft over Top 2000-nummers.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.8,
+        max_tokens: 150,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Groq API error: ${response.status} ${errText}`);
+    }
+
+    const data = await response.json();
+    const text =
+      data?.choices?.[0]?.message?.content?.trim() ??
+      "";
+
+    return new Response(JSON.stringify({ text }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
+  }
 }
