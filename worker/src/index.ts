@@ -5,7 +5,7 @@ export default {
  
     // CORS Headers
     const corsHeaders = {
-      'Access-Control-Allow-Origin': env.FRONTEND_URL || '*',
+      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
@@ -207,15 +207,19 @@ async function handleAuthCallback(request, service, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
   const error = url.searchParams.get('error');
- 
+
+  const frontendUrl = env.FRONTEND_URL && !env.FRONTEND_URL.includes('workers.dev') 
+    ? env.FRONTEND_URL 
+    : 'https://top2000allertijden.nl';
+
   if (error || !code) {
-    return Response.redirect(`${env.FRONTEND_URL}/?error=${error || 'no_code'}`, 302);
+    return Response.redirect(`${frontendUrl}/?error=${error || 'no_code'}`, 302);
   }
- 
+
   const redirectUri = `${env.REDIRECT_URI}/auth/${service}/callback`.replace('//auth', '/auth');
- 
+
   let tokenData = {};
- 
+
   if (service === 'spotify') {
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -224,14 +228,14 @@ async function handleAuthCallback(request, service, env) {
       client_id: env.SPOTIFY_CLIENT_ID,
       client_secret: env.SPOTIFY_CLIENT_SECRET,
     });
- 
+
     const resp = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body
     });
     tokenData = await resp.json();
- 
+
   } else if (service === 'youtube') {
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -240,7 +244,7 @@ async function handleAuthCallback(request, service, env) {
       client_id: env.YOUTUBE_CLIENT_ID,
       client_secret: env.YOUTUBE_CLIENT_SECRET,
     });
- 
+
     const resp = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -248,18 +252,18 @@ async function handleAuthCallback(request, service, env) {
     });
     tokenData = await resp.json();
   }
- 
+
   if (tokenData.error) {
-     return Response.redirect(`${env.FRONTEND_URL}/?error=${tokenData.error}`, 302);
+     return Response.redirect(`${frontendUrl}/?error=${tokenData.error}`, 302);
   }
- 
+
   const params = new URLSearchParams();
   params.append('access_token', tokenData.access_token);
   if (tokenData.refresh_token) params.append('refresh_token', tokenData.refresh_token);
   if (tokenData.expires_in) params.append('expires_in', tokenData.expires_in.toString());
   params.append('service', service);
- 
-  return Response.redirect(`${env.FRONTEND_URL}/#callback&${params.toString()}`, 302);
+
+  return Response.redirect(`${frontendUrl}/#callback&${params.toString()}`, 302);
 }
  
 async function handleAuthRefresh(request, service, env, corsHeaders) {
