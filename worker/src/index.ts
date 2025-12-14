@@ -103,18 +103,18 @@ async function handleNews(env, corsHeaders) {
     let imageUrl = null;
     
     // 1. Try enclosure
-    const enclosureMatch = itemContent.match(/<enclosure.*?url="(.*?)".*?>/);
+    const enclosureMatch = itemContent.match(/<enclosure[\s\S]*?url="([^"]+)"/);
     if (enclosureMatch) {
         imageUrl = enclosureMatch[1];
     } else {
         // 2. Try media:content
-        const mediaMatch = itemContent.match(/<media:content.*?url="(.*?)".*?>/);
+        const mediaMatch = itemContent.match(/<media:content[\s\S]*?url="([^"]+)"/);
         if (mediaMatch) {
             imageUrl = mediaMatch[1];
         } else {
             // 3. Try img tag in description (before stripping)
             const rawDescription = getTag('description'); 
-            const imgMatch = rawDescription.match(/<img.*?src="(.*?)".*?>/);
+            const imgMatch = rawDescription.match(/<img[\s\S]*?src="([^"]+)"/);
             if (imgMatch) imageUrl = imgMatch[1];
         }
     }
@@ -165,17 +165,25 @@ async function handleiTunes(artist, title, env, corsHeaders) {
   
   for (const q of queries) {
     const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=1&country=NL`;
-    const resp = await fetch(url);
-    if (resp.ok) {
-      const json = await resp.json();
-      if (json.results && json.results.length > 0) {
-        const track = json.results[0];
-        data = {
-          coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100', '600x600') : null,
-          previewUrl: track.previewUrl
-        };
-        break; // Found it
-      }
+    try {
+        const resp = await fetch(url, {
+            headers: {
+                'User-Agent': 'Top2000Allertijden/1.0 (Cloudflare Worker; +https://top2000allertijden.nl)'
+            }
+        });
+        if (resp.ok) {
+            const json = await resp.json();
+            if (json.results && json.results.length > 0) {
+                const track = json.results[0];
+                data = {
+                    coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100', '600x600') : null,
+                    previewUrl: track.previewUrl
+                };
+                break; // Found it
+            }
+        }
+    } catch (e) {
+        console.error(`Failed to fetch iTunes for query "${q}":`, e);
     }
   }
  
