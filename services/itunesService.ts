@@ -19,18 +19,63 @@ export const fetchSongMetadata = async (artist: string, title: string): Promise<
   }
 
   const processPromise = (async () => {
+      let data: { coverUrl: string | null; previewUrl: string | null } = { coverUrl: null, previewUrl: null };
+
+      // 1. Try Worker Cache
       try {
           const response = await fetch(`https://api.top2000allertijden.nl/itunes?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
           if (response.ok) {
-              const data = await response.json();
+              data = await response.json();
               return data;
-          } else {
-              console.error(`Metadata fetch failed: ${response.status} ${response.statusText} for ${artist} - ${title}`);
           }
       } catch (e) {
-          console.error("Error fetching metadata", e);
+          console.warn("Worker cache check failed", e);
       }
-      return { coverUrl: null, previewUrl: null };
+
+      // 2. Fetch from iTunes Client-side (Fallback)
+      try {
+          const clean = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
+          const queries = [
+            `${artist} ${title}`,
+            `${title} ${artist}`,
+            title
+          ];
+
+          for (const q of queries) {
+              const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=1&country=NL`;
+              const resp = await fetch(url);
+              
+              if (resp.ok) {
+                  const json = await resp.json();
+                  if (json.results && json.results.length > 0) {
+                      const track = json.results[0];
+                      data = {
+                          coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100', '600x600') : null,
+                          previewUrl: track.previewUrl
+                      };
+
+                      // 3. Cache result in Worker
+                      // Fire and forget - don't block return
+                      fetch('https://api.top2000allertijden.nl/itunes', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                              artist,
+                              title,
+                              coverUrl: data.coverUrl,
+                              previewUrl: data.previewUrl
+                          })
+                      }).catch(err => console.error("Failed to cache in worker", err));
+
+                      break;
+                  }
+              }
+          }
+      } catch (e) {
+          console.error("iTunes client fetch failed", e);
+      }
+      
+      return data;
   })();
 
   processPromise.then(result => {
