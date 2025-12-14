@@ -859,8 +859,8 @@ const App: React.FC = () => {
 
         {/* Promo Buttons Section */}
         {!debouncedSearchQuery && (
-            <div className="mb-8 flex flex-col items-center">
-                <h3 className="text-white text-lg font-bold mb-4 uppercase tracking-wider drop-shadow-md text-center px-4">
+            <div className="mb-8 flex flex-col items-center bg-transparent">
+                <h3 className="text-gray-900 text-lg font-bold mb-4 uppercase tracking-wider text-center px-4">
                     Beluister hier de lijst op je favoriete streamingdienst
                 </h3>
                 <div className="px-2 md:px-0 flex flex-wrap gap-2 md:gap-4 justify-center items-center">
