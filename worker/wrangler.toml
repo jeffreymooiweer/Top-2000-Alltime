@@ -1,0 +1,16 @@
+name = "top2000-api"
+main = "src/index.ts"
+compatibility_date = "2023-12-01"
+
+# KV Namespaces (Fill in IDs from dashboard)
+[[kv_namespaces]]
+binding = "ITUNES_CACHE"
+id = "" # TODO: Add ID
+
+[[kv_namespaces]]
+binding = "NEWS_CACHE"
+id = "" # TODO: Add ID
+
+[vars]
+REDIRECT_URI = "https://api.top2000allertijden.nl"
+FRONTEND_URL = "https://top2000allertijden.nl" 
