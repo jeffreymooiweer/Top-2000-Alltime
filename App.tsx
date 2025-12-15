@@ -651,6 +651,11 @@ const App: React.FC = () => {
                             link: 'https://open.spotify.com/playlist/2n4xz2gkGaY3GokSxeWzHC?si=eVTtfX0XSz2VIMY7OaA8Bg&pi=o3kWWqn0QSSKl'
                         },
                         {
+                            name: 'Deezer',
+                            icon: 'icon_deezer.png',
+                            link: 'https://link.deezer.com/s/31S2wx3mRhrCeBF0mIrca'
+                        },
+                        {
                             name: 'YouTube Music',
                             icon: 'icon_ytm.png',
                             link: 'https://music.youtube.com/playlist?list=PLIaIWD17L__XkoxtAkhMe_YIcSNov8Ox0&si=bmIrVEv1wZcNY3F1'
