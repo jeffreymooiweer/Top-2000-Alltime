@@ -433,23 +433,43 @@ async function handleYouTubeSearch(artist, title, env, corsHeaders) {
   }
 
   // 2. Fetch from YouTube API
-  // Search query: Artist Title Top 2000 a gogo
-  const q = `${artist} ${title} Top 2000 a gogo`;
-  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=1&key=${env.YOUTUBE_API_KEY}`;
-
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`YouTube API error: ${response.status} ${errText}`);
-    }
+  // Try multiple search queries in order of preference
+  const queries = [
+    `${artist} ${title} Top 2000 a gogo`,
+    `${artist} ${title} live`,
+    `${artist} ${title}`
+  ];
 
-    const data = await response.json();
-    const item = data.items?.[0];
+  let item = null;
+  let lastError = null;
 
-    if (!item) {
-        return new Response('Not Found', { status: 404, headers: corsHeaders });
+  for (const q of queries) {
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=1&key=${env.YOUTUBE_API_KEY}`;
+    
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const errText = await response.text();
+            lastError = `YouTube API error: ${response.status} ${errText}`;
+            continue;
+        }
+
+        const data = await response.json();
+        if (data.items?.[0]) {
+            item = data.items[0];
+            break; 
+        }
+    } catch (err) {
+        lastError = err.message;
     }
+  }
+
+  if (!item) {
+      // If we have an error and no item, we might want to log it or return it if it was a real error (not just empty)
+      // But for now, 404 is appropriate if nothing found.
+      return new Response('Not Found', { status: 404, headers: corsHeaders });
+  }
 
     const result = {
         videoId: item.id.videoId,
