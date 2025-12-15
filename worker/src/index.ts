@@ -1,4 +1,12 @@
 export default {
+  async scheduled(event, env, ctx) {
+    // Placeholder for daily updates logic
+    // In a real implementation, this would:
+    // 1. Fetch all user tokens from KV (e.g., USER_TOKENS)
+    // 2. Refresh tokens if needed
+    // 3. Update playlists
+    console.log("Scheduled event triggered");
+  },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -37,19 +45,19 @@ export default {
       }
  
       // 3. Auth Login
-      if (path.match(/\/auth\/(spotify|youtube)\/login/)) {
+      if (path.match(/\/auth\/(spotify|youtube|deezer)\/login/)) {
         const service = path.split('/')[2];
         return handleAuthLogin(service, env);
       }
  
       // 4. Auth Callback
-      if (path.match(/\/auth\/(spotify|youtube)\/callback/)) {
+      if (path.match(/\/auth\/(spotify|youtube|deezer)\/callback/)) {
         const service = path.split('/')[2];
         return await handleAuthCallback(request, service, env);
       }
  
       // 5. Auth Refresh
-      if (path.match(/\/auth\/(spotify|youtube)\/refresh/)) {
+      if (path.match(/\/auth\/(spotify|youtube|deezer)\/refresh/)) {
         const service = path.split('/')[2];
         return await handleAuthRefresh(request, service, env, corsHeaders);
       }
@@ -232,6 +240,13 @@ function handleAuthLogin(service, env) {
       `&access_type=offline` +
       `&prompt=consent` + 
       `&state=${state}`;
+  } else if (service === 'deezer') {
+    const perms = 'basic_access,email,manage_library,delete_library,offline_access';
+    authUrl = `https://connect.deezer.com/oauth/auth.php?` +
+      `app_id=${env.DEEZER_APP_ID}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&perms=${perms}` +
+      `&state=${state}`;
   }
  
   return Response.redirect(authUrl, 302);
@@ -286,6 +301,18 @@ async function handleAuthCallback(request, service, env) {
       body
     });
     tokenData = await resp.json();
+  } else if (service === 'deezer') {
+     const resp = await fetch(`https://connect.deezer.com/oauth/access_token.php?app_id=${env.DEEZER_APP_ID}&secret=${env.DEEZER_APP_SECRET}&code=${code}&output=json`);
+     try {
+        tokenData = await resp.json();
+     } catch (e) {
+        const text = await resp.text();
+        const params = new URLSearchParams(text);
+        tokenData = {
+            access_token: params.get('access_token'),
+            expires_in: params.get('expires'),
+        };
+     }
   }
 
   if (tokenData.error) {
@@ -340,6 +367,8 @@ async function handleAuthRefresh(request, service, env, corsHeaders) {
       body
     });
     tokenData = await resp.json();
+  } else if (service === 'deezer') {
+      tokenData = { error: 'Deezer tokens do not need refresh if offline_access was granted.' };
   }
  
   if (tokenData.error) {

@@ -10,7 +10,21 @@ interface StreamingConfig {
   expiresAt?: number;
 }
 
-// Spotify OAuth
+export interface PlaylistResult {
+  playlistUrl: string;
+  addedCount: number;
+  failedSongs: Array<{ title: string; artist: string }>;
+  cancelled?: boolean;
+}
+
+export type SpotifyPlaylistResult = PlaylistResult;
+
+// --- UTILS ---
+
+const cleanString = (str: string) => str.trim().replace(/"/g, '\\"');
+
+// --- SPOTIFY ---
+
 export const getSpotifyConfig = (): StreamingConfig | null => {
   const stored = localStorage.getItem(`${STORAGE_PREFIX}spotify`);
   return stored ? JSON.parse(stored) : null;
@@ -42,7 +56,6 @@ const refreshSpotifyToken = async (): Promise<string> => {
   saveSpotifyConfig({
     accessToken: data.access_token,
     expiresAt: Date.now() + (data.expires_in * 1000),
-    // Update refresh token if a new one is returned
     ...(data.refresh_token && { refreshToken: data.refresh_token })
   });
 
@@ -62,28 +75,11 @@ const getSpotifyAccessToken = async (): Promise<string> => {
   return config.accessToken;
 };
 
-export interface PlaylistResult {
-  playlistUrl: string;
-  addedCount: number;
-  failedSongs: Array<{ title: string; artist: string }>;
-}
-
-export type SpotifyPlaylistResult = PlaylistResult;
-
 const searchSpotifyTrack = async (
   token: string,
   artist: string,
   title: string
 ): Promise<string | null> => {
-    // Simplified search strategy (let's keep the multiple queries logic if it was robust, 
-    // but the prompt implies we want to rely on the backend more? 
-    // Actually, creating the playlist still happens client-side directly to Spotify API 
-    // because we need the user's token. The Worker only handles Auth and Metadata/News.)
-    
-    // I will keep the robust search logic from before but strip it down slightly for readability if needed.
-    // Actually, I'll copy the previous robust logic back because it's good.
-
-  const cleanString = (str: string) => str.trim().replace(/"/g, '\\"');
   const queries = [
     `artist:"${cleanString(artist)}" track:"${cleanString(title)}"`,
     `${artist} ${title}`,
@@ -122,24 +118,48 @@ export const createSpotifyPlaylist = async (
   if (!userResponse.ok) throw new Error('Kon gebruikersinformatie niet ophalen');
   const user = await userResponse.json();
 
-  // Create playlist
-  const playlistResponse = await fetch(`https://api.spotify.com/v1/users/${user.id}/playlists`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      name: playlistName,
-      description: 'Gegenereerd vanuit Top 2000 Allertijden',
-      public: false,
-    }),
-  });
+  // Check for existing playlist to update
+  let playlistId = null;
+  let isNew = true;
+  
+  try {
+      // Fetch user playlists (limit 50, usually enough to find recent ones)
+      const playlistsResp = await fetch(`https://api.spotify.com/v1/users/${user.id}/playlists?limit=50`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (playlistsResp.ok) {
+          const playlistsData = await playlistsResp.json();
+          const existing = playlistsData.items.find((p: any) => p.name === playlistName);
+          if (existing) {
+              playlistId = existing.id;
+              isNew = false;
+          }
+      }
+  } catch (e) {
+      console.warn("Could not check existing playlists", e);
+  }
 
-  if (!playlistResponse.ok) throw new Error(`Kon playlist niet aanmaken`);
-  const playlist = await playlistResponse.json();
+  if (!playlistId) {
+      // Create new playlist
+      const playlistResponse = await fetch(`https://api.spotify.com/v1/users/${user.id}/playlists`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: playlistName,
+          description: 'Gegenereerd vanuit Top 2000 Allertijden (Daily Update)',
+          public: false,
+        }),
+      });
 
-  // Add tracks
+      if (!playlistResponse.ok) throw new Error(`Kon playlist niet aanmaken`);
+      const playlist = await playlistResponse.json();
+      playlistId = playlist.id;
+  }
+
+  // Find tracks
   const trackUris: string[] = [];
   const failedSongs: Array<{ title: string; artist: string }> = [];
 
@@ -153,43 +173,79 @@ export const createSpotifyPlaylist = async (
       else failedSongs.push({ title: songs[i].title, artist: songs[i].artist });
     }
 
-    // Batch add
+    // Batch add/replace
     if (trackUris.length > 0) {
+      // For the first batch, use PUT to replace (if updating) or POST (if new, but PUT works too to overwrite empty)
+      // Actually PUT overwrites all tracks. Perfect for "Update".
+      // But PUT only accepts 100 tracks max.
+      
+      const chunks = [];
       for (let i = 0; i < trackUris.length; i += 100) {
+          chunks.push(trackUris.slice(i, i + 100));
+      }
+
+      // First chunk: PUT (Replace)
+      if (chunks.length > 0) {
+           if (signal?.aborted) throw new Error('Cancelled');
+           await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ uris: chunks[0] }),
+            });
+      }
+
+      // Subsequent chunks: POST (Append)
+      for (let i = 1; i < chunks.length; i++) {
         if (signal?.aborted) throw new Error('Cancelled');
-        const batch = trackUris.slice(i, i + 100);
-        await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
+        await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ uris: batch }),
+          body: JSON.stringify({ uris: chunks[i] }),
         });
       }
+    } else {
+        // If no tracks found, maybe clear the playlist?
+        if (!isNew) {
+            await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ uris: [] }),
+            });
+        }
     }
   } catch (error: any) {
     if (error.message === 'Cancelled' || signal?.aborted) {
-        // Cleanup: Unfollow playlist
-        try {
-            await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/followers`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-        } catch (e) { console.error('Cleanup failed', e); }
-        throw new Error('Cancelled');
+        if (isNew) {
+             try {
+                await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/followers`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            } catch (e) { console.error('Cleanup failed', e); }
+        }
+        return { playlistUrl: '', addedCount: 0, failedSongs: [], cancelled: true };
     }
     throw error;
   }
 
   return {
-    playlistUrl: `https://open.spotify.com/playlist/${playlist.id}`,
+    playlistUrl: `https://open.spotify.com/playlist/${playlistId}`,
     addedCount: trackUris.length,
     failedSongs,
   };
 };
 
-// YouTube Music OAuth
+// --- YOUTUBE MUSIC ---
+
 export const getYouTubeConfig = (): StreamingConfig | null => {
   const stored = localStorage.getItem(`${STORAGE_PREFIX}youtube`);
   return stored ? JSON.parse(stored) : null;
@@ -247,7 +303,9 @@ export const createYouTubePlaylist = async (
 ): Promise<PlaylistResult> => {
   const token = await getYouTubeAccessToken();
 
-  // Create playlist
+  // Create playlist (YouTube doesn't support easy "Find by name" and "Replace all", so we create new for now to be safe, or we'd have to list all, find ID, delete all items, add new items)
+  // For robustness, I'll stick to Create New for YouTube for now, or the user ends up with empty playlists if logic fails.
+  
   const playlistResponse = await fetch('https://www.googleapis.com/youtube/v3/playlists?part=snippet,status', {
     method: 'POST',
     headers: {
@@ -276,7 +334,6 @@ export const createYouTubePlaylist = async (
       const song = songs[i];
 
       try {
-        // Search
         const searchResp = await fetch(
           `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(song.artist + ' ' + song.title)}&type=video&maxResults=1`,
           { headers: { 'Authorization': `Bearer ${token}` } }
@@ -289,7 +346,6 @@ export const createYouTubePlaylist = async (
         }
 
         if (videoId) {
-          // Add
           await fetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
             method: 'POST',
             headers: {
@@ -313,14 +369,13 @@ export const createYouTubePlaylist = async (
     }
   } catch (error: any) {
     if (error.message === 'Cancelled' || signal?.aborted) {
-        // Cleanup: Delete playlist
         try {
             await fetch(`https://www.googleapis.com/youtube/v3/playlists?id=${playlist.id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
         } catch (e) { console.error('Cleanup failed', e); }
-        throw new Error('Cancelled');
+        return { playlistUrl: '', addedCount: 0, failedSongs: [], cancelled: true };
     }
     throw error;
   }
@@ -332,13 +387,108 @@ export const createYouTubePlaylist = async (
   };
 };
 
-// Check authentication status
+// --- DEEZER ---
+
+export const getDeezerConfig = (): StreamingConfig | null => {
+  const stored = localStorage.getItem(`${STORAGE_PREFIX}deezer`);
+  return stored ? JSON.parse(stored) : null;
+};
+
+export const saveDeezerConfig = (config: Partial<StreamingConfig>): void => {
+  const existing = getDeezerConfig() || {};
+  const updated = { ...existing, ...config };
+  localStorage.setItem(`${STORAGE_PREFIX}deezer`, JSON.stringify(updated));
+};
+
+export const initiateDeezerAuth = (): void => {
+  window.location.href = `${API_BASE}/auth/deezer/login`;
+};
+
+const getDeezerAccessToken = async (): Promise<string> => {
+    // Deezer tokens with offline_access don't expire (or last very long).
+    // Logic: just return token.
+    const config = getDeezerConfig();
+    if (!config?.accessToken) {
+        throw new Error('Niet geauthenticeerd met Deezer');
+    }
+    return config.accessToken;
+};
+
+export const createDeezerPlaylist = async (
+    songs: SongData[], 
+    playlistName: string,
+    onProgress?: (current: number, total: number) => void,
+    signal?: AbortSignal
+): Promise<PlaylistResult> => {
+    const token = await getDeezerAccessToken();
+    const corsProxy = 'https://cors-anywhere.herokuapp.com/'; // Temporary/Fallback if direct fails. 
+    // Actually, we can't use public CORS proxies in prod. 
+    // We'll try direct first. If it fails, we inform user.
+    // NOTE: Deezer API often requires JSONP for GET, but we need POST.
+    
+    // 1. Create Playlist
+    // POST https://api.deezer.com/user/me/playlists
+    const playlistResp = await fetch(`https://api.deezer.com/user/me/playlists?access_token=${token}&title=${encodeURIComponent(playlistName)}&request_method=POST`);
+    if (!playlistResp.ok) throw new Error('Deezer API Access Error (Mogelijk CORS issue)');
+    const playlistData = await playlistResp.json();
+    if (playlistData.error) throw new Error(`Deezer Fout: ${playlistData.error.message}`);
+    
+    const playlistId = playlistData.id;
+    let addedCount = 0;
+    const failedSongs: Array<{ title: string; artist: string }> = [];
+
+    try {
+        for (let i = 0; i < songs.length; i++) {
+             if (signal?.aborted) throw new Error('Cancelled');
+             if (onProgress) onProgress(i+1, songs.length);
+             const song = songs[i];
+             
+             // Search
+             const searchResp = await fetch(`https://api.deezer.com/search?q=artist:"${encodeURIComponent(song.artist)}" track:"${encodeURIComponent(song.title)}"&limit=1`);
+             const searchData = await searchResp.json();
+             
+             if (searchData.data && searchData.data.length > 0) {
+                 const trackId = searchData.data[0].id;
+                 // Add to playlist
+                 // POST https://api.deezer.com/playlist/{playlist_id}/tracks
+                 await fetch(`https://api.deezer.com/playlist/${playlistId}/tracks?access_token=${token}&songs=${trackId}&request_method=POST`);
+                 addedCount++;
+             } else {
+                 failedSongs.push({ title: song.title, artist: song.artist });
+             }
+             
+             // Rate limit protection
+             await new Promise(r => setTimeout(r, 100));
+        }
+    } catch (e: any) {
+        if (e.message === 'Cancelled' || signal?.aborted) {
+             await fetch(`https://api.deezer.com/playlist/${playlistId}?access_token=${token}&request_method=DELETE`);
+             return { playlistUrl: '', addedCount: 0, failedSongs: [], cancelled: true };
+        }
+        throw e;
+    }
+    
+    return {
+        playlistUrl: `https://www.deezer.com/playlist/${playlistId}`,
+        addedCount,
+        failedSongs
+    };
+};
+
+
+// --- AUTH CHECKERS ---
+
 export const isSpotifyAuthenticated = (): boolean => {
   const config = getSpotifyConfig();
-  return !!(config?.accessToken); // Token existence is enough, refresh handles expiration
+  return !!(config?.accessToken);
 };
 
 export const isYouTubeAuthenticated = (): boolean => {
   const config = getYouTubeConfig();
   return !!(config?.accessToken);
+};
+
+export const isDeezerAuthenticated = (): boolean => {
+    const config = getDeezerConfig();
+    return !!(config?.accessToken);
 };

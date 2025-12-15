@@ -8,10 +8,13 @@ import {
   handleSpotifyCallback,
   createSpotifyPlaylist,
   createYouTubePlaylist,
+  createDeezerPlaylist,
   isSpotifyAuthenticated,
   isYouTubeAuthenticated,
+  isDeezerAuthenticated,
   initiateSpotifyAuth,
   initiateYouTubeAuth,
+  initiateDeezerAuth,
   SpotifyPlaylistResult,
 } from './services/streamingService';
 import SongCard from './components/SongCard';
@@ -65,7 +68,7 @@ const App: React.FC = () => {
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   
   // Streaming Setup State
-  const [streamingSetupService, setStreamingSetupService] = useState<'spotify' | 'youtube' | null>(null);
+  const [streamingSetupService, setStreamingSetupService] = useState<'spotify' | 'youtube' | 'deezer' | null>(null);
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [playlistProgress, setPlaylistProgress] = useState({ current: 0, total: 0 });
   const [playlistResult, setPlaylistResult] = useState<{ playlistUrl: string; addedCount: number; failedSongs: Array<{ title: string; artist: string }> } | null>(null);
@@ -211,6 +214,13 @@ const App: React.FC = () => {
                              );
                         } else if (service === 'youtube') {
                              result = await createYouTubePlaylist(
+                                processedSongs, 
+                                playlistName, 
+                                (c, t) => setPlaylistProgress({ current: c, total: t }),
+                                abortController.current?.signal
+                             );
+                        } else if (service === 'deezer') {
+                             result = await createDeezerPlaylist(
                                 processedSongs, 
                                 playlistName, 
                                 (c, t) => setPlaylistProgress({ current: c, total: t }),
@@ -467,6 +477,9 @@ const App: React.FC = () => {
         case 'YouTube Music':
           await handleStreamingExport('youtube');
           break;
+        case 'Deezer':
+          await handleStreamingExport('deezer');
+          break;
         case 'Transfer':
           exportForTransfer(processedSongs);
           setIsDownloadOpen(false);
@@ -486,13 +499,15 @@ const App: React.FC = () => {
     }
   };
 
-  const handleStreamingExport = async (service: 'spotify' | 'youtube') => {
+  const handleStreamingExport = async (service: 'spotify' | 'youtube' | 'deezer') => {
     // Check if configured
     let config;
     if (service === 'spotify') {
       config = isSpotifyAuthenticated();
-    } else {
+    } else if (service === 'youtube') {
       config = isYouTubeAuthenticated();
+    } else {
+      config = isDeezerAuthenticated();
     }
 
     if (!config) {
@@ -522,8 +537,15 @@ const App: React.FC = () => {
           (current, total) => setPlaylistProgress({ current, total }),
           abortController.current?.signal
         );
-      } else {
+      } else if (service === 'youtube') {
         result = await createYouTubePlaylist(
+          processedSongs, 
+          playlistName,
+          (current, total) => setPlaylistProgress({ current, total }),
+          abortController.current?.signal
+        );
+      } else {
+        result = await createDeezerPlaylist(
           processedSongs, 
           playlistName,
           (current, total) => setPlaylistProgress({ current, total }),
@@ -785,6 +807,15 @@ const App: React.FC = () => {
                                      <div className="flex-1 flex items-center justify-between">
                                        <span className="font-medium">YouTube Music</span>
                                        {isYouTubeAuthenticated() && (
+                                         <span className="text-xs text-green-600 font-bold">✓</span>
+                                       )}
+                                     </div>
+                                 </button>
+                                 <button onClick={() => handleDownload('Deezer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
+                                     <img src={`${import.meta.env.BASE_URL}Image/deezer.png`} alt="Deezer" className="w-6 h-6 object-contain" />
+                                     <div className="flex-1 flex items-center justify-between">
+                                       <span className="font-medium">Deezer</span>
+                                       {isDeezerAuthenticated() && (
                                          <span className="text-xs text-green-600 font-bold">✓</span>
                                        )}
                                      </div>
@@ -1072,7 +1103,7 @@ const App: React.FC = () => {
                 }}
                 className="flex-1 bg-[#1DB954] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#1ed760] transition"
               >
-                Open in {playlistResult.playlistUrl.includes('spotify') ? 'Spotify' : 'YouTube'}
+                Open in {playlistResult.playlistUrl.includes('spotify') ? 'Spotify' : playlistResult.playlistUrl.includes('deezer') ? 'Deezer' : 'YouTube'}
               </button>
               <button
                 onClick={() => {

@@ -1,8 +1,8 @@
 import React, { memo } from 'react';
-import { initiateSpotifyAuth, initiateYouTubeAuth } from '../services/streamingService';
+import { initiateSpotifyAuth, initiateYouTubeAuth, initiateDeezerAuth } from '../services/streamingService';
 
 interface StreamingSetupModalProps {
-  service: 'spotify' | 'youtube';
+  service: 'spotify' | 'youtube' | 'deezer';
   onClose: () => void;
   onAuthenticated: () => void;
 }
@@ -13,17 +13,26 @@ const StreamingSetupModal: React.FC<StreamingSetupModalProps> = memo(({ service,
     try {
       if (service === 'spotify') {
         await initiateSpotifyAuth();
-      } else {
+      } else if (service === 'youtube') {
         await initiateYouTubeAuth();
+      } else {
+        await initiateDeezerAuth();
       }
     } catch (error: any) {
       alert(`Fout bij starten authenticatie: ${error.message}`);
     }
   };
 
-  const info = service === 'spotify' 
-    ? { name: 'Spotify', color: '#1DB954' }
-    : { name: 'YouTube Music', color: '#FF0000' };
+  const getInfo = () => {
+      switch(service) {
+          case 'spotify': return { name: 'Spotify', color: '#1DB954' };
+          case 'youtube': return { name: 'YouTube Music', color: '#FF0000' };
+          case 'deezer': return { name: 'Deezer', color: '#00C7F2' }; // Deezer Blue
+          default: return { name: 'Service', color: '#000' };
+      }
+  };
+  
+  const info = getInfo();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
