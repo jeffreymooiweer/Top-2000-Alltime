@@ -645,7 +645,12 @@ async function scrapeWikipediaDataWorker() {
       origin: '*'
     });
 
-    const response = await fetch(`${WIKI_API_URL}?${params.toString()}`);
+    // Wikipedia requires a User-Agent header
+    const headers = {
+        'User-Agent': 'Top2000AllTimeCalculator/1.0 (https://top2000allertijden.nl; jeffrey@mooiweer.me)'
+    };
+
+    const response = await fetch(`${WIKI_API_URL}?${params.toString()}`, { headers });
     const data = await response.json();
     
     if (!data.parse || !data.parse.text) {
