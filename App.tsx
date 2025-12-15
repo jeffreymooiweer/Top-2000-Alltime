@@ -580,7 +580,7 @@ const App: React.FC = () => {
                 </button>
                 <div className="cursor-pointer" onClick={() => { setSearchQuery(''); setSelectedYear('all-time'); window.scrollTo(0,0); }}>
                    <img 
-                    src="https://assets-start.npo.nl/resources/2025/11/20/41ed2cbc-8b8b-4b71-b6ec-9af8817f2a08.png" 
+                    src={`${import.meta.env.BASE_URL}Image/top2000.png`} 
                     alt="Top 2000 Logo" 
                     className="h-16 w-auto object-contain py-1"
                     loading="eager"
