@@ -658,7 +658,7 @@ const App: React.FC = () => {
                         <img 
                             src={`${import.meta.env.BASE_URL}Image/NPO_Radio_2_Top_2000_logo.png`} 
                             alt="NPO Radio 2 Top 2000"
-                            className="max-w-[240px] md:max-w-[350px] mb-6 drop-shadow-2xl"
+                            className="max-w-[240px] md:max-w-[350px] -my-8 mb-2 drop-shadow-2xl"
                             loading="eager"
                             fetchPriority="high"
                         />
