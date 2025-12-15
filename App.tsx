@@ -1,7 +1,6 @@
 
 import React, { useEffect, useState, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
 import { SongData } from './types';
-import { scrapeWikipediaData } from './services/wikipediaService'; 
 import { prefetchMetadata } from './services/itunesService';
 import { exportToExcel, exportToPDF, exportForTransfer } from './services/exportService';
 import {
@@ -23,27 +22,8 @@ const Modal = lazy(() => import('./components/Modal'));
 
 import HowItWorksModal from './components/HowItWorksModal';
 
-// Calculation Logic:
-// Rank 1 = 2000 points. Rank 2000 = 1 point.
-// Formula: Points = 2001 - Rank.
-const calculateScoreForYear = (rank: number | null | undefined): number => {
-    if (rank !== null && rank !== undefined && rank > 0 && rank <= 2000) {
-        return 2001 - rank;
-    }
-    return 0;
-};
+// Calculation Logic moved to Worker
 
-// Updated to accept a cutoff year to exclude partial data
-const calculateAllTimeScore = (song: SongData, limitYear?: number): number => {
-  let score = 0;
-  Object.entries(song.rankings).forEach(([yearStr, rank]) => {
-    const year = parseInt(yearStr);
-    // If a limitYear is set, ignore rankings from years AFTER that limit
-    if (limitYear !== undefined && year > limitYear) return;
-    score += calculateScoreForYear(rank);
-  });
-  return score;
-};
 
 const BATCH_SIZE = 20;
 const CACHE_KEY = 'top2000_data_v3'; // Version bump for partial data fix
@@ -268,84 +248,21 @@ const App: React.FC = () => {
       }
 
       try {
-        setLoadingStatus("Top 2000 tabel downloaden en verwerken...");
-        const rawSongs = await scrapeWikipediaData();
+        setLoadingStatus("Top 2000 data ophalen...");
         
-        if (rawSongs.length === 0) {
-            setLoadingStatus("Fout: Kon geen data vinden op de Wikipedia pagina. Controleer console.");
-            setLoading(false);
-            return; 
+        const API_URL = import.meta.env.VITE_API_URL || 'https://api.top2000allertijden.nl';
+        const response = await fetch(`${API_URL}/data/all-time`);
+        
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
         }
 
-        setLoadingStatus(`Scores berekenen voor ${rawSongs.length} nummers...`);
+        const finalSongs = await response.json();
 
-        // 1. Determine the effective data range
-        let maxYear = 0;
-        let maxYearCount = 0;
-        
-        if (rawSongs.length > 0) {
-            const allYears = new Set<number>();
-            rawSongs.forEach(s => {
-               Object.keys(s.rankings).forEach(y => {
-                   const yInt = parseInt(y);
-                   if(!isNaN(yInt)) allYears.add(yInt);
-               });
-            });
-            
-            if (allYears.size > 0) {
-               maxYear = Math.max(...Array.from(allYears));
-               // Count how many songs actually have a ranking for this maxYear
-               maxYearCount = rawSongs.filter(s => s.rankings[maxYear.toString()] !== undefined && s.rankings[maxYear.toString()] !== null).length;
-            }
+        if (!finalSongs || finalSongs.length === 0) {
+             throw new Error("Geen data ontvangen van API");
         }
-
-        // Threshold: If fewer than 1500 songs are known for the year, treat it as partial/incomplete.
-        const isLatestYearIncomplete = maxYearCount < 1500;
-        const effectiveAllTimeYear = isLatestYearIncomplete ? maxYear - 1 : maxYear;
         
-        // Calculate scores
-        let scoredSongs = rawSongs.map(song => {
-          // Calculate All-Time score up to the effective safe year
-          const totalScore = calculateAllTimeScore(song, effectiveAllTimeYear);
-          
-          // Calculate "Previous" score (One year before the effective year)
-          const previousTotalScore = calculateAllTimeScore(song, effectiveAllTimeYear - 1);
-          
-          return {
-              ...song,
-              totalScore,
-              previousTotalScore, // Temporary field for sorting
-              coverUrl: undefined, 
-              previewUrl: undefined
-          };
-        });
-
-        // 1. Assign All-Time Ranks (Current Safe Year)
-        scoredSongs.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
-        scoredSongs = scoredSongs.map((song, index) => ({
-          ...song,
-          allTimeRank: index + 1
-        }));
-
-        // 2. Assign All-Time Ranks (Previous Safe Year)
-        const prevSorted = [...scoredSongs].sort((a, b) => (b.previousTotalScore || 0) - (a.previousTotalScore || 0));
-        
-        const prevRankMap = new Map<string, number>();
-        prevSorted.forEach((song, index) => {
-            if ((song.previousTotalScore || 0) > 0) {
-                prevRankMap.set(song.id, index + 1);
-            }
-        });
-
-        // Merge back into main array and cleanup temporary field
-        const finalSongs = scoredSongs.map(song => {
-            const { previousTotalScore, ...rest } = song; // Remove temp field
-            return {
-                ...rest,
-                previousAllTimeRank: prevRankMap.get(song.id)
-            };
-        });
-
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify(finalSongs));
           localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());

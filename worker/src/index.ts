@@ -74,11 +74,20 @@ export default {
         return await handleYouTubeSearch(artist, title, env, corsHeaders);
       }
  
+      // 8. Top 2000 Data (All-time list)
+      if (path === '/data/top2000' || path === '/data/all-time') {
+          return await handleTop2000Data(env, corsHeaders, url.searchParams.get('force') === 'true');
+      }
+
       return new Response('Not Found', { status: 404, headers: corsHeaders });
  
     } catch (err) {
       return new Response(`Error: ${err.message}`, { status: 500, headers: corsHeaders });
     }
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(updateTop2000Data(env));
   },
 };
  
@@ -494,4 +503,306 @@ async function handleYouTubeSearch(artist, title, env, corsHeaders) {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
   }
+}
+
+// --- Top 2000 Data Logic ---
+
+async function handleTop2000Data(env, corsHeaders, forceRefresh = false) {
+  const CACHE_KEY = 'top2000_alltime_data_v1';
+  const CACHE_TTL = 60 * 60 * 24; // 1 day
+
+  // 1. Try Cache (if not forced)
+  if (!forceRefresh) {
+      const cached = await env.ITUNES_CACHE.get(CACHE_KEY, 'json');
+      if (cached) {
+        return new Response(JSON.stringify(cached), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'HIT', 'Cache-Control': 'public, max-age=3600' }
+        });
+      }
+  }
+
+  try {
+      // 2. Refresh Data
+      const data = await updateTop2000Data(env);
+      
+      return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
+      });
+  } catch (e) {
+      return new Response(JSON.stringify({ error: e.message }), { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+  }
+}
+
+async function updateTop2000Data(env) {
+    console.log("Starting Top 2000 Data Update...");
+    const CACHE_KEY = 'top2000_alltime_data_v1';
+    const CACHE_TTL = 60 * 60 * 24; // 1 day
+
+    // 1. Fetch Wikipedia Data
+    const rawSongs = await scrapeWikipediaDataWorker();
+    
+    if (rawSongs.length === 0) {
+        throw new Error("No data scraped from Wikipedia");
+    }
+
+    // 2. Calculate Scores (Reusing logic from App.tsx)
+    
+    // Determine the effective data range
+    let maxYear = 0;
+    let maxYearCount = 0;
+    
+    const allYears = new Set();
+    rawSongs.forEach(s => {
+       Object.keys(s.rankings).forEach(y => {
+           const yInt = parseInt(y);
+           if(!isNaN(yInt)) allYears.add(yInt);
+       });
+    });
+    
+    if (allYears.size > 0) {
+       maxYear = Math.max(...Array.from(allYears));
+       maxYearCount = rawSongs.filter(s => s.rankings[maxYear.toString()] !== undefined && s.rankings[maxYear.toString()] !== null).length;
+    }
+
+    const isLatestYearIncomplete = maxYearCount < 1500;
+    const effectiveAllTimeYear = isLatestYearIncomplete ? maxYear - 1 : maxYear;
+    
+    const calculateScoreForYear = (rank) => {
+        if (rank !== null && rank !== undefined && rank > 0 && rank <= 2000) {
+            return 2001 - rank;
+        }
+        return 0;
+    };
+
+    const calculateAllTimeScore = (song, limitYear) => {
+        let score = 0;
+        Object.entries(song.rankings).forEach(([yearStr, rank]) => {
+            const year = parseInt(yearStr);
+            if (limitYear !== undefined && year > limitYear) return;
+            score += calculateScoreForYear(rank);
+        });
+        return score;
+    };
+
+    // Calculate scores
+    let scoredSongs = rawSongs.map(song => {
+      const totalScore = calculateAllTimeScore(song, effectiveAllTimeYear);
+      const previousTotalScore = calculateAllTimeScore(song, effectiveAllTimeYear - 1);
+      
+      return {
+          ...song,
+          totalScore,
+          previousTotalScore
+      };
+    });
+
+    // Assign All-Time Ranks (Current Safe Year)
+    scoredSongs.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+    scoredSongs = scoredSongs.map((song, index) => ({
+      ...song,
+      allTimeRank: index + 1
+    }));
+
+    // Assign All-Time Ranks (Previous Safe Year)
+    const prevSorted = [...scoredSongs].sort((a, b) => (b.previousTotalScore || 0) - (a.previousTotalScore || 0));
+    
+    const prevRankMap = new Map();
+    prevSorted.forEach((song, index) => {
+        if ((song.previousTotalScore || 0) > 0) {
+            prevRankMap.set(song.id, index + 1);
+        }
+    });
+
+    // Merge back
+    const finalSongs = scoredSongs.map(song => {
+        const { previousTotalScore, ...rest } = song; 
+        return {
+            ...rest,
+            previousAllTimeRank: prevRankMap.get(song.id)
+        };
+    });
+
+    // 3. Store in KV
+    await env.ITUNES_CACHE.put(CACHE_KEY, JSON.stringify(finalSongs), { expirationTtl: CACHE_TTL });
+    
+    console.log(`Updated Top 2000 data with ${finalSongs.length} songs.`);
+    return finalSongs;
+}
+
+// Custom Wikipedia Scraper for Workers (No DOMParser)
+async function scrapeWikipediaDataWorker() {
+    const WIKI_API_URL = "https://nl.wikipedia.org/w/api.php";
+    const PAGE_TITLE = "Lijst_van_Radio_2-Top_2000's";
+    
+    const params = new URLSearchParams({
+      action: 'parse',
+      page: PAGE_TITLE,
+      prop: 'text',
+      format: 'json',
+      origin: '*'
+    });
+
+    const response = await fetch(`${WIKI_API_URL}?${params.toString()}`);
+    const data = await response.json();
+    
+    if (!data.parse || !data.parse.text) {
+      throw new Error("Invalid Wikipedia response structure");
+    }
+
+    const htmlContent = data.parse.text['*'];
+    
+    // Find the right table
+    // Strategy: Split by <table>...</table>, count max <th> or cells looking like years
+    
+    const tableRegex = /<table[^>]*>([\s\S]*?)<\/table>/gi;
+    let match;
+    let targetTableRows = [];
+    let maxCols = 0;
+
+    while ((match = tableRegex.exec(htmlContent)) !== null) {
+        const tableContent = match[1];
+        // Split rows
+        const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+        if (!rows || rows.length < 5) continue;
+        
+        // Count cols in first few rows
+        let currentMax = 0;
+        for(let r=0; r<Math.min(3, rows.length); r++) {
+            const cells = rows[r].match(/<(td|th)[^>]*>/gi);
+            if (cells) currentMax = Math.max(currentMax, cells.length);
+        }
+
+        if (currentMax > 20 && currentMax > maxCols) {
+            maxCols = currentMax;
+            targetTableRows = rows;
+        }
+    }
+
+    if (targetTableRows.length === 0) {
+        console.error("No suitable table found");
+        return [];
+    }
+
+    // Process Rows
+    // Helper to strip tags
+    const stripTags = (html) => html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+    const cleanCell = (cellHtml) => {
+        // Remove refs, style, script
+        let cleaned = cellHtml
+            .replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<span class="sortkey"[^>]*>[\s\S]*?<\/span>/gi, '');
+        return stripTags(cleaned);
+    };
+
+    let yearColumnMap = {}; // { colIndex: yearString }
+    let artistIdx = -1;
+    let titleIdx = -1;
+    let releaseYearIdx = -1;
+    let headerRowIndex = 0;
+
+    // Scan for headers
+    for(let r=0; r < Math.min(targetTableRows.length, 5); r++) {
+        const rowHtml = targetTableRows[r];
+        // Extract cells content
+        const cellsMatch = rowHtml.match(/<(th|td)[^>]*>([\s\S]*?)<\/\1>/gi);
+        if (!cellsMatch) continue;
+
+        const cells = cellsMatch.map(c => {
+            const inner = c.match(/<(th|td)[^>]*>([\s\S]*?)<\/\1>/i);
+            return inner ? inner[2] : '';
+        });
+
+        cells.forEach((cellContent, idx) => {
+            const text = cleanCell(cellContent).toLowerCase();
+            
+            if (text.includes('artiest')) artistIdx = idx;
+            if (text.includes('titel') || text === 'nummer') titleIdx = idx;
+            
+            if (text === 'jaar' && !text.match(/\d/)) { 
+                releaseYearIdx = idx;
+            }
+            
+            // Year Detection
+            const yearMatch = text.match(/(?:'|’|^)?(\d{2,4})\b/);
+            if (yearMatch) {
+                let y = parseInt(yearMatch[1]);
+                if (y < 100) y = y >= 90 ? 1900 + y : 2000 + y;
+                
+                if (y >= 1999 && y <= 2030) {
+                    yearColumnMap[idx] = y.toString();
+                }
+            }
+        });
+
+        if (Object.keys(yearColumnMap).length > 5) {
+            headerRowIndex = r;
+            break;
+        }
+    }
+
+    if (artistIdx === -1) artistIdx = 2; 
+    if (titleIdx === -1) titleIdx = 1;
+
+    const songs = [];
+
+    for (let i = headerRowIndex + 1; i < targetTableRows.length; i++) {
+        const rowHtml = targetTableRows[i];
+        // Extract cells content
+        // Note: This regex is simple and might fail on nested tags or specific layouts, 
+        // but for Wikipedia table rows usually <td> content </td> it works ok.
+        const cellsMatch = rowHtml.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+        if (!cellsMatch || cellsMatch.length < Math.max(artistIdx, titleIdx)) continue;
+
+        const cells = cellsMatch.map(c => {
+             const inner = c.match(/<td[^>]*>([\s\S]*?)<\/td>/i);
+             return inner ? inner[1] : '';
+        });
+
+        const artist = cleanCell(cells[artistIdx] || '');
+        const title = cleanCell(cells[titleIdx] || '');
+
+        if (!artist || !title) continue;
+
+        let releaseYear = 0;
+        if (releaseYearIdx !== -1) {
+            const val = cleanCell(cells[releaseYearIdx] || '');
+            const y = parseInt(val);
+            if (!isNaN(y) && y > 1900 && y < 2100) releaseYear = y;
+        }
+
+        const rankings = {};
+        let hasData = false;
+
+        Object.keys(yearColumnMap).forEach((colIdxStr) => {
+            const colIdx = parseInt(colIdxStr);
+            const year = yearColumnMap[colIdx];
+            const val = cleanCell(cells[colIdx] || '');
+            
+            const num = parseInt(val.replace(/\./g, ''));
+            if (!isNaN(num) && num > 0) {
+                rankings[year] = num;
+                hasData = true;
+            } else {
+                rankings[year] = null;
+            }
+        });
+
+        if (hasData) {
+            const id = `${artist}-${title}`.toLowerCase().replace(/[^a-z0-9]/g, '-');
+            songs.push({
+                id,
+                artist,
+                title,
+                releaseYear, 
+                rankings
+            });
+        }
+    }
+
+    return songs;
 }
