@@ -613,7 +613,7 @@ const App: React.FC = () => {
                  
                  <div className="relative z-10 max-w-xl">
                         <img 
-                            src="https://upload.wikimedia.org/wikipedia/commons/a/a4/NPO_Radio_2_Top_2000_logo.png" 
+                            src={`${import.meta.env.BASE_URL}Image/NPO_Radio_2_Top_2000_logo.png`} 
                             alt="NPO Radio 2 Top 2000"
                             className="max-w-[240px] md:max-w-[350px] mb-6 drop-shadow-2xl"
                             loading="eager"
