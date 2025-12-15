@@ -110,7 +110,8 @@ const searchSpotifyTrack = async (
 export const createSpotifyPlaylist = async (
   songs: SongData[], 
   playlistName: string,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  signal?: AbortSignal
 ): Promise<SpotifyPlaylistResult> => {
   const token = await getSpotifyAccessToken();
 
@@ -142,27 +143,43 @@ export const createSpotifyPlaylist = async (
   const trackUris: string[] = [];
   const failedSongs: Array<{ title: string; artist: string }> = [];
 
-  for (let i = 0; i < songs.length; i++) {
-    if (onProgress) onProgress(i + 1, songs.length);
-    
-    const uri = await searchSpotifyTrack(token, songs[i].artist, songs[i].title);
-    if (uri) trackUris.push(uri);
-    else failedSongs.push({ title: songs[i].title, artist: songs[i].artist });
-  }
-
-  // Batch add
-  if (trackUris.length > 0) {
-    for (let i = 0; i < trackUris.length; i += 100) {
-      const batch = trackUris.slice(i, i + 100);
-      await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ uris: batch }),
-      });
+  try {
+    for (let i = 0; i < songs.length; i++) {
+      if (signal?.aborted) throw new Error('Cancelled');
+      if (onProgress) onProgress(i + 1, songs.length);
+      
+      const uri = await searchSpotifyTrack(token, songs[i].artist, songs[i].title);
+      if (uri) trackUris.push(uri);
+      else failedSongs.push({ title: songs[i].title, artist: songs[i].artist });
     }
+
+    // Batch add
+    if (trackUris.length > 0) {
+      for (let i = 0; i < trackUris.length; i += 100) {
+        if (signal?.aborted) throw new Error('Cancelled');
+        const batch = trackUris.slice(i, i + 100);
+        await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ uris: batch }),
+        });
+      }
+    }
+  } catch (error: any) {
+    if (error.message === 'Cancelled' || signal?.aborted) {
+        // Cleanup: Unfollow playlist
+        try {
+            await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/followers`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (e) { console.error('Cleanup failed', e); }
+        throw new Error('Cancelled');
+    }
+    throw error;
   }
 
   return {
@@ -225,7 +242,8 @@ const getYouTubeAccessToken = async (): Promise<string> => {
 export const createYouTubePlaylist = async (
   songs: SongData[], 
   playlistName: string,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  signal?: AbortSignal
 ): Promise<PlaylistResult> => {
   const token = await getYouTubeAccessToken();
 
@@ -251,45 +269,60 @@ export const createYouTubePlaylist = async (
   let addedCount = 0;
   const failedSongs: Array<{ title: string; artist: string }> = [];
 
-  for (let i = 0; i < songs.length; i++) {
-    if (onProgress) onProgress(i + 1, songs.length);
-    const song = songs[i];
+  try {
+    for (let i = 0; i < songs.length; i++) {
+      if (signal?.aborted) throw new Error('Cancelled');
+      if (onProgress) onProgress(i + 1, songs.length);
+      const song = songs[i];
 
-    try {
-      // Search
-      const searchResp = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(song.artist + ' ' + song.title)}&type=video&maxResults=1`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
-      
-      let videoId = null;
-      if (searchResp.ok) {
-        const data = await searchResp.json();
-        if (data.items?.[0]?.id?.videoId) videoId = data.items[0].id.videoId;
-      }
+      try {
+        // Search
+        const searchResp = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(song.artist + ' ' + song.title)}&type=video&maxResults=1`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        
+        let videoId = null;
+        if (searchResp.ok) {
+          const data = await searchResp.json();
+          if (data.items?.[0]?.id?.videoId) videoId = data.items[0].id.videoId;
+        }
 
-      if (videoId) {
-        // Add
-        await fetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
-          method: 'POST',
-          headers: {
-             'Authorization': `Bearer ${token}`,
-             'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            snippet: {
-              playlistId: playlist.id,
-              resourceId: { kind: 'youtube#video', videoId },
+        if (videoId) {
+          // Add
+          await fetch('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', {
+            method: 'POST',
+            headers: {
+               'Authorization': `Bearer ${token}`,
+               'Content-Type': 'application/json',
             },
-          }),
-        });
-        addedCount++;
-      } else {
+            body: JSON.stringify({
+              snippet: {
+                playlistId: playlist.id,
+                resourceId: { kind: 'youtube#video', videoId },
+              },
+            }),
+          });
+          addedCount++;
+        } else {
+          failedSongs.push({ title: song.title, artist: song.artist });
+        }
+      } catch (e) {
         failedSongs.push({ title: song.title, artist: song.artist });
       }
-    } catch (e) {
-      failedSongs.push({ title: song.title, artist: song.artist });
     }
+  } catch (error: any) {
+    if (error.message === 'Cancelled' || signal?.aborted) {
+        // Cleanup: Delete playlist
+        try {
+            await fetch(`https://www.googleapis.com/youtube/v3/playlists?id=${playlist.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (e) { console.error('Cleanup failed', e); }
+        throw new Error('Cancelled');
+    }
+    throw error;
   }
 
   return {

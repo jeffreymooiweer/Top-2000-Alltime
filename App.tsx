@@ -78,6 +78,7 @@ const App: React.FC = () => {
   const observerTarget = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const spotifyCallbackProcessed = useRef(false);
+  const abortController = useRef<AbortController | null>(null);
   
   // Refs for click-outside detection
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
@@ -157,6 +158,9 @@ const App: React.FC = () => {
   
   // Handle OAuth Callbacks
   useEffect(() => {
+    // Wait for data to load
+    if (loading) return;
+
     const hash = window.location.hash;
     const searchParams = new URLSearchParams(window.location.search);
     
@@ -186,6 +190,12 @@ const App: React.FC = () => {
              // Auto Create Playlist
              if (processedSongs.length > 0) {
                  setIsCreatingPlaylist(true);
+                 setPlaylistProgress({ current: 0, total: processedSongs.length });
+                 setPlaylistResult(null);
+                 
+                 // Setup abort controller
+                 abortController.current = new AbortController();
+
                  (async () => {
                     try {
                         const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
@@ -193,19 +203,34 @@ const App: React.FC = () => {
                         
                         let result;
                         if (service === 'spotify') {
-                             result = await createSpotifyPlaylist(processedSongs, playlistName, (c, t) => setPlaylistProgress({ current: c, total: t }));
+                             result = await createSpotifyPlaylist(
+                                processedSongs, 
+                                playlistName, 
+                                (c, t) => setPlaylistProgress({ current: c, total: t }),
+                                abortController.current?.signal
+                             );
                         } else if (service === 'youtube') {
-                             result = await createYouTubePlaylist(processedSongs, playlistName, (c, t) => setPlaylistProgress({ current: c, total: t }));
+                             result = await createYouTubePlaylist(
+                                processedSongs, 
+                                playlistName, 
+                                (c, t) => setPlaylistProgress({ current: c, total: t }),
+                                abortController.current?.signal
+                             );
                         }
+                        
+                        if (result?.cancelled) {
+                            setIsCreatingPlaylist(false);
+                            return;
+                        }
+
                         setPlaylistResult(result);
                     } catch (e: any) {
-                        alert(`Fout bij aanmaken playlist: ${e.message}`);
-                    } finally {
+                        if (e.message !== 'Cancelled') {
+                            alert(`Fout bij aanmaken playlist: ${e.message}`);
+                        }
                         setIsCreatingPlaylist(false);
                     }
                  })();
-             } else {
-                 alert(`${service === 'spotify' ? 'Spotify' : 'YouTube'} succesvol gekoppeld!`);
              }
         }
     }
@@ -217,7 +242,7 @@ const App: React.FC = () => {
         window.history.replaceState(null, '', window.location.pathname);
     }
 
-  }, [processedSongs, selectedYear]);
+  }, [processedSongs, selectedYear, loading]);
 
   // Initialize Data
   useEffect(() => {
@@ -455,6 +480,12 @@ const App: React.FC = () => {
     }
   }, [processedSongs, selectedYear]);
 
+  const handleCancelPlaylist = () => {
+    if (abortController.current) {
+      abortController.current.abort();
+    }
+  };
+
   const handleStreamingExport = async (service: 'spotify' | 'youtube') => {
     // Check if configured
     let config;
@@ -476,6 +507,8 @@ const App: React.FC = () => {
     setPlaylistProgress({ current: 0, total: processedSongs.length });
     setPlaylistResult(null);
     setIsDownloadOpen(false);
+    
+    abortController.current = new AbortController();
 
     try {
       const yearLabel = selectedYear === 'all-time' ? 'Allertijden' : selectedYear;
@@ -486,20 +519,30 @@ const App: React.FC = () => {
         result = await createSpotifyPlaylist(
           processedSongs, 
           playlistName,
-          (current, total) => setPlaylistProgress({ current, total })
+          (current, total) => setPlaylistProgress({ current, total }),
+          abortController.current?.signal
         );
       } else {
         result = await createYouTubePlaylist(
           processedSongs, 
           playlistName,
-          (current, total) => setPlaylistProgress({ current, total })
+          (current, total) => setPlaylistProgress({ current, total }),
+          abortController.current?.signal
         );
       }
+
+      if (result?.cancelled) {
+        setIsCreatingPlaylist(false);
+        return;
+      }
+      
       setPlaylistResult(result);
 
     } catch (error: any) {
+      if (error.message !== 'Cancelled') {
+        alert(`Fout bij aanmaken playlist: ${error.message}`);
+      }
       setIsCreatingPlaylist(false);
-      alert(`Fout bij aanmaken playlist: ${error.message}`);
     }
   };
 
@@ -957,6 +1000,20 @@ const App: React.FC = () => {
             <p className="text-xs text-gray-500 mt-2">
               {Math.round((playlistProgress.current / playlistProgress.total) * 100)}% voltooid
             </p>
+
+            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-left">
+                <p className="text-sm text-yellow-800 font-bold mb-1">⚠️ Let op:</p>
+                <p className="text-xs text-yellow-700">
+                    Sluit dit venster niet tijdens het proces. Als je annuleert wordt de playlist verwijderd.
+                </p>
+            </div>
+
+            <button 
+                onClick={handleCancelPlaylist}
+                className="mt-6 text-gray-500 hover:text-red-600 text-sm font-medium underline"
+            >
+                Annuleren
+            </button>
           </div>
         </div>
       )}
