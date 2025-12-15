@@ -560,7 +560,7 @@ const App: React.FC = () => {
                   <div className="mt-auto pt-6 border-t border-white/20 text-white/80 text-sm">
                        <div className="flex items-center gap-4 mb-4">
                           <a href="https://github.com/jeffreymooiweer/Top-2000-Alltime" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition">
-                              <img src={`${import.meta.env.BASE_URL}Image/Github-Emblem.png`} alt="GitHub" className="h-6 w-auto" />
+                              <img src={`${import.meta.env.BASE_URL}Image/GitHub-Emblem.png`} alt="GitHub" className="h-6 w-auto" />
                           </a>
                           <a href="https://www.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition">
                               <img src={`${import.meta.env.BASE_URL}Image/Cloudflare_Logo.svg.png`} alt="Cloudflare" className="h-6 w-auto" />
@@ -580,7 +580,7 @@ const App: React.FC = () => {
                 </button>
                 <div className="cursor-pointer" onClick={() => { setSearchQuery(''); setSelectedYear('all-time'); window.scrollTo(0,0); }}>
                    <img 
-                    src="https://assets-start.npo.nl/resources/2025/11/20/41ed2cbc-8b8b-4b71-b6ec-9af8817f2a08.png" 
+                    src={`${import.meta.env.BASE_URL}Image/top2000.png`} 
                     alt="Top 2000 Logo" 
                     className="h-16 w-auto object-contain py-1"
                     loading="eager"
@@ -613,7 +613,7 @@ const App: React.FC = () => {
                  
                  <div className="relative z-10 max-w-xl">
                         <img 
-                            src="https://upload.wikimedia.org/wikipedia/commons/a/a4/NPO_Radio_2_Top_2000_logo.png" 
+                            src={`${import.meta.env.BASE_URL}Image/NPO_Radio_2_Top_2000_logo.png`} 
                             alt="NPO Radio 2 Top 2000"
                             className="max-w-[240px] md:max-w-[350px] mb-6 drop-shadow-2xl"
                             loading="eager"
