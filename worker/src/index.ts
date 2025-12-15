@@ -422,7 +422,8 @@ async function handleYouTubeSearch(artist, title, env, corsHeaders) {
     });
   }
 
-  const cacheKey = `youtube:${artist.toLowerCase()}:${title.toLowerCase()}`.replace(/\s+/g, '-');
+  // Changed cache key to invalidate old non-channel-restricted results
+  const cacheKey = `youtube-v2:${artist.toLowerCase()}:${title.toLowerCase()}`.replace(/\s+/g, '-');
   
   // 1. Try Cache
   const cached = await env.ITUNES_CACHE.get(cacheKey, 'json');
@@ -432,10 +433,33 @@ async function handleYouTubeSearch(artist, title, env, corsHeaders) {
     });
   }
 
-  // 2. Fetch from YouTube API
-  // Search query: Artist Title Top 2000 a gogo
-  const q = `${artist} ${title} Top 2000 a gogo`;
-  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=1&key=${env.YOUTUBE_API_KEY}`;
+  // 2. Get Channel ID (Cached)
+  let channelId = await env.ITUNES_CACHE.get('channel_id:Top2000agogo');
+  if (!channelId) {
+     try {
+       const channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=Top2000agogo&key=${env.YOUTUBE_API_KEY}`;
+       const channelResp = await fetch(channelUrl);
+       const channelData = await channelResp.json();
+       channelId = channelData.items?.[0]?.id;
+       
+       if (channelId) {
+         await env.ITUNES_CACHE.put('channel_id:Top2000agogo', channelId);
+       }
+     } catch (e) {
+       console.error('Failed to fetch channel ID:', e);
+     }
+  }
+
+  // 3. Fetch from YouTube API
+  const q = `${artist} ${title}`;
+  let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=1&key=${env.YOUTUBE_API_KEY}`;
+  
+  if (channelId) {
+    url += `&channelId=${channelId}`;
+  } else {
+    // Fallback if channel ID fetch failed
+    url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q + ' Top 2000 a gogo')}&type=video&maxResults=1&key=${env.YOUTUBE_API_KEY}`;
+  }
 
   try {
     const response = await fetch(url);
@@ -457,7 +481,7 @@ async function handleYouTubeSearch(artist, title, env, corsHeaders) {
         thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url
     };
 
-    // 3. Store in Cache (30 days)
+    // 4. Store in Cache (30 days)
     await env.ITUNES_CACHE.put(cacheKey, JSON.stringify(result), { expirationTtl: 60 * 60 * 24 * 30 });
 
     return new Response(JSON.stringify(result), {
