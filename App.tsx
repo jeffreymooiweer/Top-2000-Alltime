@@ -560,7 +560,7 @@ const App: React.FC = () => {
                   <div className="mt-auto pt-6 border-t border-white/20 text-white/80 text-sm">
                        <div className="flex items-center gap-4 mb-4">
                           <a href="https://github.com/jeffreymooiweer/Top-2000-Alltime" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition">
-                              <img src={`${import.meta.env.BASE_URL}Image/Github-Emblem.png`} alt="GitHub" className="h-6 w-auto" />
+                              <img src={`${import.meta.env.BASE_URL}Image/GitHub-Emblem.png`} alt="GitHub" className="h-6 w-auto" />
                           </a>
                           <a href="https://www.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition">
                               <img src={`${import.meta.env.BASE_URL}Image/Cloudflare_Logo.svg.png`} alt="Cloudflare" className="h-6 w-auto" />
