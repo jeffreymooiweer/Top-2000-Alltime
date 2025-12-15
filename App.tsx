@@ -601,7 +601,7 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="mt-auto pt-6 border-t border-white/20 text-white/80 text-sm">
-                       <div className="flex items-center gap-4 mb-4">
+                       <div className="flex items-center justify-center gap-4 mb-4">
                           <a href="https://github.com/jeffreymooiweer/Top-2000-Alltime" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition">
                               <img src={`${import.meta.env.BASE_URL}Image/GitHub-Emblem.png`} alt="GitHub" className="h-6 w-auto" />
                           </a>
@@ -609,7 +609,7 @@ const App: React.FC = () => {
                               <img src={`${import.meta.env.BASE_URL}Image/Cloudflare_Logo.svg.png`} alt="Cloudflare" className="h-6 w-auto" />
                           </a>
                        </div>
-                       <p>© 2025 Top 2000 Allertijden - <a href="https://mooiweer.me" target="_blank" rel="noopener noreferrer" className="hover:text-white underline decoration-white/30 hover:decoration-white transition">mooiweer.me</a></p>
+                       <p className="text-xs whitespace-nowrap">© 2025 Top 2000 Allertijden - <a href="https://mooiweer.me" target="_blank" rel="noopener noreferrer" className="hover:text-white underline decoration-white/30 hover:decoration-white transition">mooiweer.me</a></p>
                   </div>
               </div>
           </div>
@@ -658,7 +658,7 @@ const App: React.FC = () => {
                         <img 
                             src={`${import.meta.env.BASE_URL}Image/NPO_Radio_2_Top_2000_logo.png`} 
                             alt="NPO Radio 2 Top 2000"
-                            className="max-w-[240px] md:max-w-[350px] -my-8 mb-2 drop-shadow-2xl"
+                            className="max-w-[240px] md:max-w-[350px] -my-12 mb-2 drop-shadow-2xl"
                             loading="eager"
                             fetchPriority="high"
                         />
@@ -719,7 +719,7 @@ const App: React.FC = () => {
                             href={service.link}
                             target={service.link === '#' ? undefined : "_blank"}
                             rel={service.link === '#' ? undefined : "noopener noreferrer"}
-                            className={`block group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 ${service.link === '#' ? 'cursor-default opacity-80' : ''}`}
+                            className={`flex justify-center items-center group relative transition-all duration-300 transform hover:-translate-y-1 ${service.link === '#' ? 'cursor-default opacity-80' : ''}`}
                             onClick={service.link === '#' ? (e) => e.preventDefault() : undefined}
                         >
                             <img 
