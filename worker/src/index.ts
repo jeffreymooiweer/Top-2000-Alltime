@@ -645,8 +645,21 @@ async function scrapeWikipediaDataWorker() {
       origin: '*'
     });
 
-    const response = await fetch(`${WIKI_API_URL}?${params.toString()}`);
-    const data = await response.json();
+    const response = await fetch(`${WIKI_API_URL}?${params.toString()}`, {
+      headers: {
+        'User-Agent': 'Top2000-AllTime-Worker/1.0 (https://top2000allertijden.nl)'
+      }
+    });
+    
+    // Debug: Handle non-JSON responses
+    const text = await response.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        // If the response is not JSON, throw an error with the content
+        throw new Error(`Wikipedia API returned non-JSON. Status: ${response.status}. Content: "${text.substring(0, 200)}..."`);
+    }
     
     if (!data.parse || !data.parse.text) {
       throw new Error("Invalid Wikipedia response structure");
