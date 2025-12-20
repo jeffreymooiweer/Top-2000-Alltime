@@ -178,7 +178,7 @@ const Modal: React.FC<ModalProps> = memo(({
       <div className="relative bg-white w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
         
         {/* Header */}
-        <div className={`relative bg-[#d00018] text-white transition-all duration-300 shrink-0 ${
+        <div className={`relative bg-[#d00018] text-white transition-all duration-500 ease-in-out shrink-0 ${
           isScrolled 
             ? 'p-4 flex-row items-center gap-4' 
             : 'p-6 md:p-8 flex flex-col md:flex-row gap-6 items-start md:items-end'
@@ -216,39 +216,37 @@ const Modal: React.FC<ModalProps> = memo(({
             </svg>
           </button>
 
-          <div className={`relative shrink-0 group transition-all duration-300 ${
+          <div className={`relative shrink-0 group transition-all duration-500 ease-in-out ${
             isScrolled ? 'ml-8 md:ml-10' : 'ml-8 md:ml-10'
           }`}>
             <img 
               src={localCover || 'https://picsum.photos/200/200'} 
-              className={`rounded shadow-lg border-2 border-white/20 bg-gray-800 object-cover transition-all duration-300 ${
+              className={`rounded shadow-lg border-2 border-white/20 bg-gray-800 object-cover transition-all duration-500 ease-in-out ${
                 isScrolled ? 'w-16 h-16' : 'w-32 h-32'
               }`}
               alt={song.title}
               loading="eager"
               decoding="async"
             />
-            {!isScrolled && (
-              <div className="absolute -bottom-4 -right-4">
-                <AudioPlayer previewUrl={localPreview} />
-              </div>
-            )}
+            <div className={`absolute -bottom-4 -right-4 transition-opacity duration-300 ${isScrolled ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+               <AudioPlayer previewUrl={localPreview} />
+            </div>
           </div>
           
-          <div className={`flex-1 min-w-0 transition-all duration-300 ${
+          <div className={`flex-1 min-w-0 transition-all duration-500 ease-in-out ${
             isScrolled ? 'mr-12' : 'pb-2 mr-8 md:mr-10'
           }`}>
-            <h2 className={`font-bold brand-font truncate leading-tight transition-all duration-300 ${
+            <h2 className={`font-bold brand-font truncate leading-tight transition-all duration-500 ease-in-out ${
               isScrolled ? 'text-xl' : 'text-3xl md:text-5xl'
             }`}>
               {song.title}
             </h2>
-            <p className={`opacity-90 font-medium transition-all duration-300 ${
+            <p className={`opacity-90 font-medium transition-all duration-500 ease-in-out ${
               isScrolled ? 'text-sm' : 'text-xl'
             }`}>{song.artist}</p>
             
-            <div className={`flex flex-wrap gap-2 mt-3 text-sm font-semibold opacity-90 transition-all duration-300 ${
-              isScrolled ? 'opacity-0 h-0 overflow-hidden mt-0' : 'opacity-100'
+            <div className={`flex flex-wrap gap-2 text-sm font-semibold opacity-90 transition-all duration-500 ease-in-out overflow-hidden ${
+              isScrolled ? 'opacity-0 max-h-0 mt-0' : 'opacity-100 max-h-24 mt-3'
             }`}>
               <span className="bg-white/20 px-2 py-1 rounded">
                 Allertijden Rank #{song.allTimeRank}
