@@ -3,6 +3,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback, Suspense, laz
 import { SongData } from './types';
 import { prefetchMetadata } from './services/itunesService';
 import { exportToExcel, exportToPDF, exportForTransfer } from './services/exportService';
+import { decodeHtmlEntities } from './utils/textUtils';
 import {
   handleSpotifyCallback,
   createSpotifyPlaylist,
@@ -279,10 +280,15 @@ const App: React.FC = () => {
             if (age < CACHE_DURATION) {
                 console.log("Loading data from local cache...");
                 const parsedSongs = JSON.parse(cachedData);
-                setSongs(parsedSongs);
+                const sanitizedSongs = parsedSongs.map((s: SongData) => ({
+                    ...s,
+                    artist: decodeHtmlEntities(s.artist),
+                    title: decodeHtmlEntities(s.title)
+                }));
+                setSongs(sanitizedSongs);
                 setLoading(false);
                 // Trigger background prefetch for top 50 only
-                prefetchMetadata(parsedSongs.slice(0, 50));
+                prefetchMetadata(sanitizedSongs.slice(0, 50));
                 return;
             }
         }
@@ -306,17 +312,24 @@ const App: React.FC = () => {
              throw new Error("Geen data ontvangen van API");
         }
         
+        // Sanitize API data
+        const sanitizedSongs = finalSongs.map((s: SongData) => ({
+            ...s,
+            artist: decodeHtmlEntities(s.artist),
+            title: decodeHtmlEntities(s.title)
+        }));
+
         try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify(finalSongs));
+          localStorage.setItem(CACHE_KEY, JSON.stringify(sanitizedSongs));
           localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
         } catch (e) {
           console.warn("Cache write error", e);
         }
 
-        setSongs(finalSongs);
+        setSongs(sanitizedSongs);
         setLoading(false);
         // Trigger background prefetch for TOP 50 only
-        prefetchMetadata(finalSongs.slice(0, 50));
+        prefetchMetadata(sanitizedSongs.slice(0, 50));
       } catch (error) {
         console.error("Error initializing data:", error);
         setLoadingStatus("Fout bij het laden van data. Probeer de pagina te vernieuwen.");
