@@ -52,6 +52,7 @@ const App: React.FC = () => {
   
   // Year Selection State: 'all-time' or a specific year string like '2023'
   const [selectedYear, setSelectedYear] = useState<string>('all-time');
+  const [isFilterActive, setIsFilterActive] = useState(false);
   
   // Infinite Scroll State
   const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
@@ -123,18 +124,60 @@ const App: React.FC = () => {
 
     // 2. Year Filter & Sort
     if (selectedYear !== 'all-time') {
-        result = result.filter(s => s.rankings[selectedYear] !== null && s.rankings[selectedYear] !== undefined);
+        const prevYear = (parseInt(selectedYear) - 1).toString();
+
+        if (isFilterActive) {
+            // Newcomers & Leavers Filter
+            if (selectedYear === '1999') {
+                 // 1999: Everyone is effectively a "Newcomer" relative to start.
+                 result = result.filter(s => s.rankings['1999'] !== null && s.rankings['1999'] !== undefined);
+            } else {
+                 result = result.filter(s => {
+                     const inCurrent = s.rankings[selectedYear] !== null && s.rankings[selectedYear] !== undefined;
+                     const inPrev = s.rankings[prevYear] !== null && s.rankings[prevYear] !== undefined;
+                     
+                     // Newcomer: In Current AND Not In Prev
+                     // Leaver: Not In Current AND In Prev
+                     return (inCurrent && !inPrev) || (!inCurrent && inPrev);
+                 });
+            }
+        } else {
+             // Normal View
+             result = result.filter(s => s.rankings[selectedYear] !== null && s.rankings[selectedYear] !== undefined);
+        }
+
         result.sort((a, b) => {
-            const rankA = a.rankings[selectedYear] as number;
-            const rankB = b.rankings[selectedYear] as number;
-            return rankA - rankB;
+            const rankA = (a.rankings[selectedYear] as number) || 9999;
+            const rankB = (b.rankings[selectedYear] as number) || 9999;
+            
+            if (rankA !== rankB) return rankA - rankB;
+
+            // Sort Leavers by previous rank
+            const prevRankA = (a.rankings[prevYear] as number) || 9999;
+            const prevRankB = (b.rankings[prevYear] as number) || 9999;
+            return prevRankA - prevRankB;
         });
     } else {
+        if (isFilterActive) {
+             // Newcomers to All-Time list are the same as newcomers to the latest year per user instruction
+             if (availableYears.length > 0) {
+                 const latestYear = availableYears[0];
+                 const prevYear = (parseInt(latestYear) - 1).toString();
+                 
+                 result = result.filter(s => {
+                     const inCurrent = s.rankings[latestYear] !== null && s.rankings[latestYear] !== undefined;
+                     const inPrev = s.rankings[prevYear] !== null && s.rankings[prevYear] !== undefined;
+                     
+                     // Only Newcomers for All-Time view (per request: "Newcomers of all-time are of course the same as the last year")
+                     return inCurrent && !inPrev;
+                 });
+             }
+        }
         result.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
     }
 
     return result;
-  }, [songs, debouncedSearchQuery, selectedYear]);
+  }, [songs, debouncedSearchQuery, selectedYear, isFilterActive]);
   
   // Handle OAuth Callbacks
   useEffect(() => {
@@ -780,6 +823,23 @@ const App: React.FC = () => {
                              {availableYears.map(y => <option key={y} value={y} className="bg-white text-gray-900">{y}</option>)}
                         </select>
                     </div>
+
+                    <button
+                        onClick={() => setIsFilterActive(!isFilterActive)}
+                        className={`mt-2 w-full flex items-center justify-center gap-2 py-2 px-4 rounded font-bold uppercase tracking-wider text-sm border transition-all ${
+                            isFilterActive 
+                                ? 'bg-white text-[#d00018] border-white' 
+                                : 'bg-transparent text-white border-white/30 hover:border-white hover:bg-white/10'
+                        }`}
+                    >
+                        {isFilterActive && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        )}
+                        {selectedYear === 'all-time' || selectedYear === '1999' 
+                            ? 'Nieuwkomers' 
+                            : 'Nieuwkomers & Afvallers'
+                        }
+                    </button>
                 </div>
 
                 {/* Row 3: Search Bar */}
