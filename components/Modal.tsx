@@ -83,6 +83,7 @@ const Modal: React.FC<ModalProps> = memo(({
   hasPrevious
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [isScrolled, setIsScrolled] = useState(false);
   
   // Local Metadata State (in case song prop is missing data)
   const [localCover, setLocalCover] = useState<string | null | undefined>(song.coverUrl);
@@ -119,9 +120,15 @@ const Modal: React.FC<ModalProps> = memo(({
     setActiveTab(tab);
   }, []);
 
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    setIsScrolled(scrollTop > 50);
+  };
+
   // Sync state when song changes
   useEffect(() => {
     setActiveTab('overview');
+    setIsScrolled(false);
     setAnalysis('');
     setLyrics('');
     setLocalCover(song.coverUrl);
@@ -171,7 +178,11 @@ const Modal: React.FC<ModalProps> = memo(({
       <div className="relative bg-white w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
         
         {/* Header */}
-        <div className="relative bg-[#d00018] text-white p-6 md:p-8 flex flex-col md:flex-row gap-6 items-start md:items-end">
+        <div className={`relative bg-[#d00018] text-white transition-all duration-500 ease-in-out shrink-0 ${
+          isScrolled 
+            ? 'p-4 flex-row items-center gap-4' 
+            : 'p-6 md:p-8 flex flex-col md:flex-row gap-6 items-start md:items-end'
+        }`}>
           
           <button 
             onClick={onClose}
@@ -205,25 +216,38 @@ const Modal: React.FC<ModalProps> = memo(({
             </svg>
           </button>
 
-          <div className="relative shrink-0 group ml-8 md:ml-10">
+          <div className={`relative shrink-0 group transition-all duration-500 ease-in-out ${
+            isScrolled ? 'ml-8 md:ml-10' : 'ml-8 md:ml-10'
+          }`}>
             <img 
               src={localCover || 'https://picsum.photos/200/200'} 
-              className="w-32 h-32 rounded shadow-lg border-2 border-white/20 bg-gray-800 object-cover"
+              className={`rounded shadow-lg border-2 border-white/20 bg-gray-800 object-cover transition-all duration-500 ease-in-out ${
+                isScrolled ? 'w-16 h-16' : 'w-32 h-32'
+              }`}
               alt={song.title}
               loading="eager"
               decoding="async"
             />
-            <div className="absolute -bottom-4 -right-4">
-              <AudioPlayer previewUrl={localPreview} />
+            <div className={`absolute -bottom-4 -right-4 transition-opacity duration-300 ${isScrolled ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+               <AudioPlayer previewUrl={localPreview} />
             </div>
           </div>
           
-          <div className="flex-1 min-w-0 pb-2 mr-8 md:mr-10">
-            <h2 className="text-3xl md:text-5xl font-bold brand-font truncate leading-tight">
+          <div className={`flex-1 min-w-0 transition-all duration-500 ease-in-out ${
+            isScrolled ? 'mr-12' : 'pb-2 mr-8 md:mr-10'
+          }`}>
+            <h2 className={`font-bold brand-font truncate leading-tight transition-all duration-500 ease-in-out ${
+              isScrolled ? 'text-xl' : 'text-3xl md:text-5xl'
+            }`}>
               {song.title}
             </h2>
-            <p className="text-xl opacity-90 font-medium">{song.artist}</p>
-            <div className="flex flex-wrap gap-2 mt-3 text-sm font-semibold opacity-90">
+            <p className={`opacity-90 font-medium transition-all duration-500 ease-in-out ${
+              isScrolled ? 'text-sm' : 'text-xl'
+            }`}>{song.artist}</p>
+            
+            <div className={`flex flex-wrap gap-2 text-sm font-semibold opacity-90 transition-all duration-500 ease-in-out overflow-hidden ${
+              isScrolled ? 'opacity-0 max-h-0 mt-0' : 'opacity-100 max-h-24 mt-3'
+            }`}>
               <span className="bg-white/20 px-2 py-1 rounded">
                 Allertijden Rank #{song.allTimeRank}
               </span>
@@ -238,7 +262,7 @@ const Modal: React.FC<ModalProps> = memo(({
         </div>
 
         {/* Tabs */}
-        <div className="bg-white border-b border-gray-200 px-6 md:px-8 flex space-x-8">
+        <div className="bg-white border-b border-gray-200 px-6 md:px-8 flex space-x-8 shrink-0">
           <button 
             onClick={() => handleTabChange('overview')}
             className={`py-4 font-bold uppercase tracking-wider text-sm border-b-4 transition-colors ${activeTab === 'overview' ? 'border-[#d00018] text-[#d00018]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
@@ -260,7 +284,10 @@ const Modal: React.FC<ModalProps> = memo(({
         </div>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-gray-50">
+        <div 
+          className="flex-1 overflow-y-auto p-6 md:p-8 bg-gray-50"
+          onScroll={handleScroll}
+        >
           {activeTab === 'overview' && (
             <div className="space-y-8 animate-fade-in">
               {/* Chart Section */}
@@ -324,10 +351,7 @@ const Modal: React.FC<ModalProps> = memo(({
 
           {activeTab === 'video' && (
             <div className="animate-fade-in bg-white p-6 rounded-xl shadow-inner min-h-[300px] flex flex-col items-center">
-               <h4 className="font-bold text-lg mb-6 brand-font uppercase text-gray-400 self-start w-full text-center">
-                  Top 2000 a gogo
-                </h4>
-                <div className="w-full max-w-2xl">
+                <div className="w-full">
                    <YouTubeTop2000Embed 
                       artist={song.artist} 
                       title={song.title} 
