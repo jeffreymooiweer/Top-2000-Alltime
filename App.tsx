@@ -159,12 +159,19 @@ const App: React.FC = () => {
         });
     } else {
         if (isFilterActive) {
-             // Newcomers to All-Time list
-             result = result.filter(s => {
-                const currentRank = s.allTimeRank;
-                const prevRank = s.previousAllTimeRank;
-                return currentRank && (!prevRank || prevRank > 2000);
-             });
+             // Newcomers to All-Time list are the same as newcomers to the latest year per user instruction
+             if (availableYears.length > 0) {
+                 const latestYear = availableYears[0];
+                 const prevYear = (parseInt(latestYear) - 1).toString();
+                 
+                 result = result.filter(s => {
+                     const inCurrent = s.rankings[latestYear] !== null && s.rankings[latestYear] !== undefined;
+                     const inPrev = s.rankings[prevYear] !== null && s.rankings[prevYear] !== undefined;
+                     
+                     // Only Newcomers for All-Time view (per request: "Newcomers of all-time are of course the same as the last year")
+                     return inCurrent && !inPrev;
+                 });
+             }
         }
         result.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
     }
