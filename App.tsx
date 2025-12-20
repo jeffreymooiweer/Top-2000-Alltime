@@ -883,7 +883,8 @@ const App: React.FC = () => {
 
                                 if (selectedYear === 'all-time') {
                                     displayRank = song.allTimeRank || idx + 1;
-                                    previousRank = song.previousAllTimeRank;
+                                    // If showing Newcomers filter, force "New" label by hiding previous rank
+                                    previousRank = isFilterActive ? null : song.previousAllTimeRank;
                                 } else {
                                     displayRank = (song.rankings[selectedYear] as number) || 0;
                                     // Find the previous available year based on list logic
