@@ -62,7 +62,10 @@ const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSe
   let statusBg = "bg-gray-500";
   let statusText = "-";
   
-  if (!previousRank || previousRank === 0) {
+  if (rank === 0) {
+      statusBg = "bg-[#d00018]"; // Red
+      statusText = "UIT";
+  } else if (!previousRank || previousRank === 0) {
       statusBg = "bg-gray-500";
       statusText = "Nieuw";
   } else {
@@ -93,7 +96,7 @@ const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSe
         <div className="w-16 md:w-20 bg-gray-50 flex flex-col items-center justify-center p-2 shrink-0 border-r border-gray-100">
              <div className="w-full bg-white border border-gray-200 rounded flex flex-col items-center overflow-hidden shadow-sm">
                  <div className="py-1 w-full text-center font-bold text-gray-900 text-lg md:text-xl">
-                     {rank}
+                     {rank === 0 ? '-' : rank}
                  </div>
                  <div className={`w-full text-center text-white font-bold text-xs py-1 ${statusBg}`}>
                      {statusText}
