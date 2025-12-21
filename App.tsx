@@ -43,6 +43,7 @@ const App: React.FC = () => {
   // Header Menus State
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [isSoundiizModalOpen, setIsSoundiizModalOpen] = useState(false);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   
   // Streaming Setup State
@@ -427,6 +428,19 @@ const App: React.FC = () => {
   const toggleShare = useCallback(() => { setIsShareOpen(prev => !prev); setIsDownloadOpen(false); }, []);
   const toggleDownload = useCallback(() => { setIsDownloadOpen(prev => !prev); setIsShareOpen(false); }, []);
 
+  // Soundiiz URL Logic
+  const soundiizUrl = useMemo(() => {
+    const API_URL = import.meta.env.VITE_API_URL || 'https://api.top2000allertijden.nl';
+    const yearParam = selectedYear === 'all-time' ? '' : `?year=${selectedYear}`;
+    return `${API_URL}/export/soundiiz${yearParam}`;
+  }, [selectedYear]);
+
+  const handleCopySoundiizUrl = () => {
+     navigator.clipboard.writeText(soundiizUrl).then(() => {
+         alert('Link gekopieerd naar klembord!');
+     });
+  };
+
   const handleDownload = useCallback(async (type: string) => {
     try {
       switch (type) {
@@ -767,13 +781,17 @@ const App: React.FC = () => {
                                      </div>
                                  </button>
                                  
-                                 <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-1">
-                                     Overig
-                                 </div>
-                                 <button onClick={() => handleDownload('Transfer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                     <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                                     <span className="font-medium">Voor Soundiiz / Transfer</span>
-                                 </button>
+                                <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-1">
+                                    Overig
+                                </div>
+                                <button onClick={() => { setIsSoundiizModalOpen(true); setIsDownloadOpen(false); }} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-b border-gray-100 transition">
+                                    <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                    <span className="font-medium">Link voor Soundiiz</span>
+                                </button>
+                                <button onClick={() => handleDownload('Transfer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
+                                    <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                    <span className="font-medium">Download CSV (Soundiiz)</span>
+                                </button>
                              </div>
                          )}
 
@@ -1079,6 +1097,45 @@ const App: React.FC = () => {
                 Sluiten
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isSoundiizModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setIsSoundiizModalOpen(false)}>
+          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl animate-fade-in-up" onClick={e => e.stopPropagation()}>
+             <div className="flex justify-between items-center mb-4">
+                 <h3 className="text-xl font-bold text-gray-900">Importeer in Soundiiz</h3>
+                 <button onClick={() => setIsSoundiizModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                 </button>
+             </div>
+             
+             <p className="text-gray-600 mb-4 text-sm">
+                 Kopieer onderstaande link en plak deze in Soundiiz via de optie <strong>"Import via URL"</strong> om de lijst direct te importeren.
+             </p>
+             
+             <div className="flex gap-2 mb-6">
+                 <input 
+                    type="text" 
+                    readOnly 
+                    value={soundiizUrl} 
+                    className="flex-1 bg-gray-100 border border-gray-300 rounded px-3 py-2 text-sm text-gray-700 outline-none focus:border-[#d00018]"
+                    onClick={(e) => e.currentTarget.select()}
+                 />
+                 <button 
+                    onClick={handleCopySoundiizUrl}
+                    className="bg-[#d00018] text-white px-4 py-2 rounded font-bold hover:bg-[#b00014] transition whitespace-nowrap"
+                 >
+                    Kopiëren
+                 </button>
+             </div>
+             
+             <div className="bg-blue-50 border border-blue-100 rounded p-3">
+                 <p className="text-xs text-blue-800">
+                     <strong>Tip:</strong> Zorg dat je in Soundiiz kiest voor de optie om vanuit een URL te importeren. Soundiiz zal de lijst automatisch herkennen.
+                 </p>
+             </div>
           </div>
         </div>
       )}

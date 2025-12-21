@@ -79,6 +79,12 @@ export default {
           return await handleTop2000Data(env, corsHeaders, url.searchParams.get('force') === 'true');
       }
 
+      // 9. Soundiiz Export (CSV)
+      if (path === '/export/soundiiz') {
+          const year = url.searchParams.get('year');
+          return await handleSoundiizExport(env, corsHeaders, year);
+      }
+
       return new Response('Not Found', { status: 404, headers: corsHeaders });
  
     } catch (err) {
@@ -503,6 +509,74 @@ async function handleYouTubeSearch(artist, title, env, corsHeaders) {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
   }
+}
+
+// ... Soundiiz Export Handler
+async function handleSoundiizExport(env, corsHeaders, year) {
+  const CACHE_KEY = 'top2000_alltime_data_v1';
+  
+  // 1. Get Data from Cache
+  let songs = await env.ITUNES_CACHE.get(CACHE_KEY, 'json');
+  
+  if (!songs) {
+     // If not in cache, try to update
+     try {
+         songs = await updateTop2000Data(env);
+     } catch (e) {
+         return new Response(`Error fetching data: ${e.message}`, { status: 500, headers: corsHeaders });
+     }
+  }
+
+  // 2. Filter/Sort
+  let filteredSongs = [...songs];
+  
+  if (year && year !== 'all-time') {
+      const yearInt = parseInt(year); // Ensure year is treated as string key in rankings
+      const yearKey = year.toString();
+
+      // Filter songs that have a rank in this year
+      filteredSongs = filteredSongs.filter(s => 
+          s.rankings[yearKey] !== null && s.rankings[yearKey] !== undefined
+      );
+      
+      // Sort by rank in that year
+      filteredSongs.sort((a, b) => {
+          const rankA = a.rankings[yearKey] || 9999;
+          const rankB = b.rankings[yearKey] || 9999;
+          return rankA - rankB;
+      });
+  } else {
+      // All-time: already sorted by totalScore/allTimeRank in the stored data
+      // But just in case
+      filteredSongs.sort((a, b) => (a.allTimeRank || 9999) - (b.allTimeRank || 9999));
+  }
+
+  // 3. Generate CSV
+  // Soundiiz format: Title, Artist, Album
+  const csvRows = ['Title,Artist,Album'];
+  
+  filteredSongs.forEach(song => {
+      // Escape quotes
+      const title = (song.title || '').replace(/"/g, '""');
+      const artist = (song.artist || '').replace(/"/g, '""');
+      const album = ''; // We don't have album data
+      
+      csvRows.push(`"${title}","${artist}","${album}"`);
+  });
+  
+  const csvContent = csvRows.join('\n');
+
+  // 4. Return Response
+  const yearLabel = year === 'all-time' || !year ? 'Allertijden' : year;
+  const filename = `Top2000-${yearLabel}.csv`;
+
+  return new Response(csvContent, {
+      headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}"`
+      }
+  });
 }
 
 // --- Top 2000 Data Logic ---
