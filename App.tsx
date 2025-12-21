@@ -428,11 +428,11 @@ const App: React.FC = () => {
   const toggleShare = useCallback(() => { setIsShareOpen(prev => !prev); setIsDownloadOpen(false); }, []);
   const toggleDownload = useCallback(() => { setIsDownloadOpen(prev => !prev); setIsShareOpen(false); }, []);
 
-  // Soundiiz URL Logic
+  // Soundiiz / Playlist URL Logic
   const soundiizUrl = useMemo(() => {
     const API_URL = import.meta.env.VITE_API_URL || 'https://api.top2000allertijden.nl';
-    const yearParam = selectedYear === 'all-time' ? '' : `?year=${selectedYear}`;
-    return `${API_URL}/export/soundiiz${yearParam}`;
+    const yearLabel = selectedYear === 'all-time' ? 'all-time' : selectedYear;
+    return `${API_URL}/export/top2000-${yearLabel}.xspf`;
   }, [selectedYear]);
 
   const handleCopySoundiizUrl = () => {
@@ -789,8 +789,8 @@ const App: React.FC = () => {
                                     <span className="font-medium">Link voor Soundiiz</span>
                                 </button>
                                 <button onClick={() => handleDownload('Transfer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                    <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                                    <span className="font-medium">Download CSV (Soundiiz)</span>
+                                    <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                    <span className="font-medium">Download CSV bestand</span>
                                 </button>
                              </div>
                          )}
@@ -1112,7 +1112,9 @@ const App: React.FC = () => {
              </div>
              
              <p className="text-gray-600 mb-4 text-sm">
-                 Kopieer onderstaande link en plak deze in Soundiiz via de optie <strong>"Import via URL"</strong> om de lijst direct te importeren.
+                 Deze applicatie kan niet rechtstreeks uitgelezen worden door Soundiiz, maar we hebben een slimme oplossing!
+                 <br/><br/>
+                 Gebruik onderstaande <strong>speciale playlist-link</strong>. Deze wordt door Soundiiz herkend als een geldig bestand.
              </p>
              
              <div className="flex gap-2 mb-6">
@@ -1131,10 +1133,14 @@ const App: React.FC = () => {
                  </button>
              </div>
              
-             <div className="bg-blue-50 border border-blue-100 rounded p-3">
-                 <p className="text-xs text-blue-800">
-                     <strong>Tip:</strong> Zorg dat je in Soundiiz kiest voor de optie om vanuit een URL te importeren. Soundiiz zal de lijst automatisch herkennen.
-                 </p>
+             <div className="bg-blue-50 border border-blue-100 rounded p-3 text-sm space-y-2">
+                 <p className="font-bold text-blue-900">Hoe werkt het?</p>
+                 <ol className="list-decimal list-inside text-blue-800 space-y-1">
+                     <li>Kopieer bovenstaande link</li>
+                     <li>Ga naar Soundiiz en klik op <strong>"Import Playlist"</strong></li>
+                     <li>Kies de optie <strong>"From Web URL"</strong></li>
+                     <li>Plak de link en klik op importeren</li>
+                 </ol>
              </div>
           </div>
         </div>

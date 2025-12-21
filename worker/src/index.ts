@@ -79,10 +79,18 @@ export default {
           return await handleTop2000Data(env, corsHeaders, url.searchParams.get('force') === 'true');
       }
 
-      // 9. Soundiiz Export (CSV)
+      // 9. Soundiiz / Playlist Export (XSPF)
+      // Matches: /export/top2000-all-time.xspf, /export/top2000-2023.xspf
+      const exportMatch = path.match(/^\/export\/top2000-(.+)\.xspf$/);
+      if (exportMatch) {
+          const year = exportMatch[1];
+          return await handlePlaylistExport(env, corsHeaders, year);
+      }
+      
+      // Legacy/Fallback
       if (path === '/export/soundiiz') {
           const year = url.searchParams.get('year');
-          return await handleSoundiizExport(env, corsHeaders, year);
+          return await handlePlaylistExport(env, corsHeaders, year);
       }
 
       return new Response('Not Found', { status: 404, headers: corsHeaders });
@@ -511,15 +519,14 @@ async function handleYouTubeSearch(artist, title, env, corsHeaders) {
   }
 }
 
-// ... Soundiiz Export Handler
-async function handleSoundiizExport(env, corsHeaders, year) {
+// ... Playlist Export Handler (XSPF)
+async function handlePlaylistExport(env, corsHeaders, year) {
   const CACHE_KEY = 'top2000_alltime_data_v1';
   
   // 1. Get Data from Cache
   let songs = await env.ITUNES_CACHE.get(CACHE_KEY, 'json');
   
   if (!songs) {
-     // If not in cache, try to update
      try {
          songs = await updateTop2000Data(env);
      } catch (e) {
@@ -530,50 +537,68 @@ async function handleSoundiizExport(env, corsHeaders, year) {
   // 2. Filter/Sort
   let filteredSongs = [...songs];
   
-  if (year && year !== 'all-time') {
-      const yearInt = parseInt(year); // Ensure year is treated as string key in rankings
+  if (year && year !== 'all-time' && year !== 'Allertijden') {
+      const yearInt = parseInt(year); 
       const yearKey = year.toString();
 
-      // Filter songs that have a rank in this year
+      // Filter
       filteredSongs = filteredSongs.filter(s => 
           s.rankings[yearKey] !== null && s.rankings[yearKey] !== undefined
       );
       
-      // Sort by rank in that year
+      // Sort
       filteredSongs.sort((a, b) => {
           const rankA = a.rankings[yearKey] || 9999;
           const rankB = b.rankings[yearKey] || 9999;
           return rankA - rankB;
       });
   } else {
-      // All-time: already sorted by totalScore/allTimeRank in the stored data
-      // But just in case
+      // All-time
       filteredSongs.sort((a, b) => (a.allTimeRank || 9999) - (b.allTimeRank || 9999));
   }
 
-  // 3. Generate CSV
-  // Soundiiz format: Title, Artist, Album
-  const csvRows = ['Title,Artist,Album'];
+  // 3. Generate XSPF (XML)
+  const yearLabel = (year === 'all-time' || !year) ? 'Allertijden' : year;
+  
+  const escapeXml = (unsafe) => {
+      if (!unsafe) return '';
+      return unsafe.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+  };
+
+  const xmlParts = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<playlist version="1" xmlns="http://xspf.org/ns/0/">',
+    `  <title>Top 2000 ${yearLabel}</title>`,
+    `  <creator>NPO Radio 2 / Top 2000 Allertijden</creator>`,
+    `  <date>${new Date().toISOString()}</date>`,
+    '  <trackList>'
+  ];
   
   filteredSongs.forEach(song => {
-      // Escape quotes
-      const title = (song.title || '').replace(/"/g, '""');
-      const artist = (song.artist || '').replace(/"/g, '""');
-      const album = ''; // We don't have album data
-      
-      csvRows.push(`"${title}","${artist}","${album}"`);
+      xmlParts.push('    <track>');
+      xmlParts.push(`      <title>${escapeXml(song.title)}</title>`);
+      xmlParts.push(`      <creator>${escapeXml(song.artist)}</creator>`);
+      if (song.releaseYear) {
+           xmlParts.push(`      <annotation>Year: ${song.releaseYear}</annotation>`);
+      }
+      xmlParts.push('    </track>');
   });
   
-  const csvContent = csvRows.join('\n');
+  xmlParts.push('  </trackList>');
+  xmlParts.push('</playlist>');
 
-  // 4. Return Response
-  const yearLabel = year === 'all-time' || !year ? 'Allertijden' : year;
-  const filename = `Top2000-${yearLabel}.csv`;
+  const xmlContent = xmlParts.join('\n');
+  const filename = `Top2000-${yearLabel}.xspf`;
 
-  return new Response(csvContent, {
+  return new Response(xmlContent, {
       headers: {
           ...corsHeaders,
-          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Type': 'application/xspf+xml; charset=utf-8',
           'Content-Disposition': `attachment; filename="${filename}"`
       }
   });
