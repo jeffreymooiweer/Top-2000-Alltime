@@ -79,18 +79,20 @@ export default {
           return await handleTop2000Data(env, corsHeaders, url.searchParams.get('force') === 'true');
       }
 
-      // 9. Soundiiz / Playlist Export (XSPF)
-      // Matches: /export/top2000-all-time.xspf, /export/top2000-2023.xspf
-      const exportMatch = path.match(/^\/export\/top2000-(.+)\.xspf$/);
+      // 9. Soundiiz / Playlist Export (XSPF/JSON)
+      // Matches: /export/top2000-all-time.xspf, /export/top2000-2023.json
+      const exportMatch = path.match(/^\/export\/top2000-(.+)\.(xspf|json)$/);
       if (exportMatch) {
           const year = exportMatch[1];
-          return await handlePlaylistExport(env, corsHeaders, year);
+          const format = exportMatch[2];
+          return await handlePlaylistExport(env, corsHeaders, year, format);
       }
       
       // Legacy/Fallback
       if (path === '/export/soundiiz') {
           const year = url.searchParams.get('year');
-          return await handlePlaylistExport(env, corsHeaders, year);
+          const format = url.searchParams.get('format') || 'xspf';
+          return await handlePlaylistExport(env, corsHeaders, year, format);
       }
 
       return new Response('Not Found', { status: 404, headers: corsHeaders });
@@ -519,8 +521,8 @@ async function handleYouTubeSearch(artist, title, env, corsHeaders) {
   }
 }
 
-// ... Playlist Export Handler (XSPF)
-async function handlePlaylistExport(env, corsHeaders, year) {
+// ... Playlist Export Handler (XSPF/JSON)
+async function handlePlaylistExport(env, corsHeaders, year, format = 'xspf') {
   const CACHE_KEY = 'top2000_alltime_data_v1';
   
   // 1. Get Data from Cache
@@ -557,9 +559,31 @@ async function handlePlaylistExport(env, corsHeaders, year) {
       filteredSongs.sort((a, b) => (a.allTimeRank || 9999) - (b.allTimeRank || 9999));
   }
 
-  // 3. Generate XSPF (XML)
+  // 3. Generate Output
   const yearLabel = (year === 'all-time' || !year) ? 'Allertijden' : year;
+
+  if (format === 'json') {
+      const playlist = {
+          title: `Top 2000 ${yearLabel}`,
+          description: `NPO Radio 2 / Top 2000 Allertijden - Export Date: ${new Date().toISOString()}`,
+          tracks: filteredSongs.map(song => ({
+              title: song.title,
+              artist: song.artist,
+              album: song.releaseYear ? `Year: ${song.releaseYear}` : undefined
+          }))
+      };
+
+      const filename = `Top2000-${yearLabel}.json`;
+      return new Response(JSON.stringify(playlist, null, 2), {
+          headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json; charset=utf-8',
+              'Content-Disposition': `attachment; filename="${filename}"`
+          }
+      });
+  }
   
+  // Default: XSPF (XML)
   const escapeXml = (unsafe) => {
       if (!unsafe) return '';
       return unsafe.toString()
