@@ -342,3 +342,102 @@ export const isYouTubeAuthenticated = (): boolean => {
   const config = getYouTubeConfig();
   return !!(config?.accessToken);
 };
+
+// Import Logic
+export const getPlaylistIdFromUrl = (url: string): { service: 'spotify' | 'youtube', id: string } | null => {
+  try {
+    const urlObj = new URL(url);
+    
+    // Spotify
+    if (urlObj.hostname.includes('spotify.com')) {
+      const parts = urlObj.pathname.split('/');
+      const playlistIndex = parts.indexOf('playlist');
+      if (playlistIndex !== -1 && parts[playlistIndex + 1]) {
+        return { service: 'spotify', id: parts[playlistIndex + 1] };
+      }
+    }
+    
+    // YouTube
+    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+      const list = urlObj.searchParams.get('list');
+      if (list) {
+        return { service: 'youtube', id: list };
+      }
+    }
+  } catch (e) {
+    return null;
+  }
+  return null;
+};
+
+export const fetchSpotifyPlaylist = async (
+  playlistId: string, 
+  onProgress?: (count: number) => void
+): Promise<{ title: string, artist: string }[]> => {
+  const token = await getSpotifyAccessToken();
+  let url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?fields=items(track(name,artists(name))),next&limit=100`;
+  let tracks: { title: string, artist: string }[] = [];
+  
+  while (url) {
+    const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!response.ok) throw new Error('Kon Spotify playlist niet ophalen');
+    const data = await response.json();
+    
+    if (data.items) {
+      data.items.forEach((item: any) => {
+        if (item.track) {
+          tracks.push({
+            title: item.track.name,
+            artist: item.track.artists.map((a: any) => a.name).join(', ')
+          });
+        }
+      });
+    }
+    
+    if (onProgress) onProgress(tracks.length);
+    url = data.next;
+  }
+  return tracks;
+};
+
+export const fetchYouTubePlaylist = async (
+  playlistId: string,
+  onProgress?: (count: number) => void
+): Promise<{ title: string, artist: string }[]> => {
+  const token = await getYouTubeAccessToken();
+  let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}`;
+  let tracks: { title: string, artist: string }[] = [];
+  let nextPageToken = '';
+
+  do {
+    const response = await fetch(`${url}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`, {
+         headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error('Kon YouTube playlist niet ophalen');
+    const data = await response.json();
+
+    if (data.items) {
+      data.items.forEach((item: any) => {
+        const title = item.snippet.title;
+        // Basic parsing: "Artist - Title" or just "Title"
+        if (title.includes(' - ')) {
+          const parts = title.split(' - ');
+          tracks.push({
+            artist: parts[0].trim(),
+            title: parts.slice(1).join(' - ').trim()
+          });
+        } else {
+          tracks.push({
+            title: title,
+            artist: item.snippet.videoOwnerChannelTitle || '' // Fallback
+          });
+        }
+      });
+    }
+    
+    if (onProgress) onProgress(tracks.length);
+    nextPageToken = data.nextPageToken;
+  } while (nextPageToken);
+
+  return tracks;
+};
