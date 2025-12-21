@@ -22,6 +22,7 @@ import StreamingSetupModal from './components/StreamingSetupModal';
 const Modal = lazy(() => import('./components/Modal'));
 
 import HowItWorksModal from './components/HowItWorksModal';
+import ImportPlaylistModal from './components/ImportPlaylistModal';
 
 // Calculation Logic moved to Worker
 
@@ -42,6 +43,7 @@ const App: React.FC = () => {
   
   // Header Menus State
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   
@@ -214,6 +216,11 @@ const App: React.FC = () => {
              // Clean URL
              window.location.hash = '';
              setStreamingSetupService(null);
+
+             // Check for pending import
+             if (localStorage.getItem('pending_import_url')) {
+                 setIsImportModalOpen(true);
+             }
 
              // Auto Create Playlist
              if (processedSongs.length > 0) {
@@ -573,6 +580,18 @@ const App: React.FC = () => {
                               className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium"
                           >
                               Hoe werkt het?
+                          </button>
+                          
+                          <div className="h-px bg-white/20 my-2 mx-4"></div>
+
+                          <button 
+                              onClick={() => { 
+                                  setIsMenuOpen(false);
+                                  setIsImportModalOpen(true);
+                              }} 
+                              className="block w-full text-left py-3 px-4 hover:bg-white/10 rounded transition font-medium text-yellow-300 hover:text-yellow-100"
+                          >
+                              Check je playlist
                           </button>
                       </nav>
                   </div>
@@ -1085,6 +1104,13 @@ const App: React.FC = () => {
 
       {isHowItWorksOpen && (
         <HowItWorksModal onClose={() => setIsHowItWorksOpen(false)} />
+      )}
+
+      {isImportModalOpen && (
+        <ImportPlaylistModal 
+            onClose={() => setIsImportModalOpen(false)} 
+            top2000Songs={songs}
+        />
       )}
 
     </div>
