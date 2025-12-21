@@ -432,7 +432,7 @@ const App: React.FC = () => {
   const soundiizUrl = useMemo(() => {
     const API_URL = import.meta.env.VITE_API_URL || 'https://api.top2000allertijden.nl';
     const yearLabel = selectedYear === 'all-time' ? 'all-time' : selectedYear;
-    return `${API_URL}/export/top2000-${yearLabel}.xspf`;
+    return `${API_URL}/export/top2000-${yearLabel}.json`;
   }, [selectedYear]);
 
   const handleCopySoundiizUrl = () => {
