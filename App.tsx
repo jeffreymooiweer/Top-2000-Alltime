@@ -160,17 +160,21 @@ const App: React.FC = () => {
         });
     } else {
         if (isFilterActive) {
-             // Newcomers to All-Time list are the same as newcomers to the latest year per user instruction
+             // Newcomers to All-Time list are strictly DEBUTS (never in list before)
              if (availableYears.length > 0) {
                  const latestYear = availableYears[0];
-                 const prevYear = (parseInt(latestYear) - 1).toString();
                  
                  result = result.filter(s => {
                      const inCurrent = s.rankings[latestYear] !== null && s.rankings[latestYear] !== undefined;
-                     const inPrev = s.rankings[prevYear] !== null && s.rankings[prevYear] !== undefined;
                      
-                     // Only Newcomers for All-Time view (per request: "Newcomers of all-time are of course the same as the last year")
-                     return inCurrent && !inPrev;
+                     if (!inCurrent) return false;
+
+                     // Check if it was ever in the list before (debut check)
+                     const wasInListBefore = availableYears.slice(1).some(year => {
+                         return s.rankings[year] !== null && s.rankings[year] !== undefined;
+                     });
+                     
+                     return !wasInListBefore;
                  });
              }
         }
