@@ -111,7 +111,7 @@ const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSe
                     {isVisible && coverUrl ? (
                     <img 
                         src={coverUrl} 
-                        alt={song.title} 
+                        alt={`${song.artist} - ${song.title}`} 
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover animate-fade-in" 
@@ -124,7 +124,7 @@ const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSe
                         ) : (
                             /* Failed / Null State - Vinyl Icon */
                             <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                                <svg className="w-8 h-8 text-gray-500 opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>
+                                <svg aria-hidden="true" className="w-8 h-8 text-gray-500 opacity-50" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>
                             </div>
                         )}
                         </div>
@@ -147,7 +147,7 @@ const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSe
 
                 {/* Right Icon */}
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                    <img src={`${import.meta.env.BASE_URL}Image/chart.png`} alt="Chart" className="w-6 h-6 opacity-50" />
+                    <img src={`${import.meta.env.BASE_URL}Image/chart.png`} alt="" aria-hidden="true" className="w-6 h-6 opacity-50" />
                 </div>
         </div>
     </div>

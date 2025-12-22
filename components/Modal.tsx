@@ -186,9 +186,10 @@ const Modal: React.FC<ModalProps> = memo(({
           
           <button 
             onClick={onClose}
+            aria-label="Sluiten"
             className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/20 hover:bg-black/40 rounded-full p-2 transition z-20"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -197,10 +198,11 @@ const Modal: React.FC<ModalProps> = memo(({
           <button 
             onClick={(e) => { e.stopPropagation(); onPrevious(); }}
             disabled={!hasPrevious}
+            aria-label="Vorige"
             className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition z-20 ${hasPrevious ? 'text-white/70 hover:text-white hover:bg-black/20' : 'text-white/20 cursor-not-allowed'}`}
             title="Vorige (Pijl Links)"
           >
-            <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg aria-hidden="true" className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
@@ -208,10 +210,11 @@ const Modal: React.FC<ModalProps> = memo(({
           <button 
             onClick={(e) => { e.stopPropagation(); onNext(); }}
             disabled={!hasNext}
+            aria-label="Volgende"
             className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition z-20 ${hasNext ? 'text-white/70 hover:text-white hover:bg-black/20' : 'text-white/20 cursor-not-allowed'}`}
             title="Volgende (Pijl Rechts)"
           >
-            <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg aria-hidden="true" className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -293,7 +296,7 @@ const Modal: React.FC<ModalProps> = memo(({
               {/* Chart Section */}
               <section>
                 <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2 brand-font uppercase">
-                  <svg className="w-5 h-5 text-[#d00018]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-5 h-5 text-[#d00018]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                   </svg>
                   Notering Geschiedenis
@@ -306,7 +309,7 @@ const Modal: React.FC<ModalProps> = memo(({
               {/* Analysis Section */}
               <section>
                 <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2 brand-font uppercase">
-                  <svg className="w-5 h-5 text-[#d00018]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-5 h-5 text-[#d00018]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Wist je dat?
