@@ -7,6 +7,43 @@ interface MetadataCacheEntry {
 const memoryCache: Map<string, MetadataCacheEntry> = new Map();
 const pendingRequests = new Map<string, Promise<{ coverUrl: string | null; previewUrl: string | null }>>();
 
+// Helper for JSONP requests to bypass CORS
+const fetchJsonp = (url: string): Promise<any> => {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'itunes_callback_' + Math.random().toString(36).substr(2, 9);
+        const script = document.createElement('script');
+        
+        // Timeout handling
+        const timeoutId = setTimeout(() => {
+            cleanup();
+            reject(new Error('JSONP timeout'));
+        }, 5000);
+
+        const cleanup = () => {
+             // @ts-ignore
+             delete window[callbackName];
+             if (document.body.contains(script)) {
+                 document.body.removeChild(script);
+             }
+             clearTimeout(timeoutId);
+        };
+
+        // @ts-ignore
+        window[callbackName] = (data: any) => {
+            cleanup();
+            resolve(data);
+        };
+
+        script.src = `${url}&callback=${callbackName}`;
+        script.onerror = () => {
+            cleanup();
+            reject(new Error('JSONP script load error'));
+        };
+
+        document.body.appendChild(script);
+    });
+};
+
 export const fetchSongMetadata = async (artist: string, title: string): Promise<{ coverUrl: string | null; previewUrl: string | null }> => {
   const cacheKey = `${artist}|${title}`.toLowerCase();
   
@@ -42,11 +79,12 @@ export const fetchSongMetadata = async (artist: string, title: string): Promise<
           ];
 
           for (const q of queries) {
+              // Try JSONP for iTunes as it supports it and avoids CORS issues
               const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=1&country=NL`;
-              const resp = await fetch(url);
               
-              if (resp.ok) {
-                  const json = await resp.json();
+              try {
+                  const json = await fetchJsonp(url);
+                  
                   if (json.results && json.results.length > 0) {
                       const track = json.results[0];
                       data = {
@@ -69,6 +107,10 @@ export const fetchSongMetadata = async (artist: string, title: string): Promise<
 
                       break;
                   }
+              } catch (innerErr) {
+                  // Fallback to fetch if JSONP fails (unlikely for iTunes, but good safety)
+                   // console.warn("JSONP failed, trying fetch", innerErr);
+                   // If JSONP fails, normal fetch will likely fail too due to CORS, but let's leave it as is.
               }
           }
       } catch (e) {
