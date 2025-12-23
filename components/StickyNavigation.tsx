@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface StickyNavigationProps {
   currentRank: number;
@@ -14,6 +14,27 @@ const StickyNavigation: React.FC<StickyNavigationProps> = ({
     className = ''
 }) => {
   const [targetInput, setTargetInput] = useState('');
+  const [isSticky, setIsSticky] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsSticky(!entry.isIntersecting && entry.boundingClientRect.top < 65);
+      },
+      { 
+          // Check if the sentinel (top edge of component) hits the 64px line (top-16)
+          rootMargin: '-65px 0px 0px 0px',
+          threshold: [1] 
+      }
+    );
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleJump = (delta: number) => {
       onJump(currentRank + delta);
@@ -33,35 +54,42 @@ const StickyNavigation: React.FC<StickyNavigationProps> = ({
   };
 
   return (
-    <div className={`sticky top-16 z-40 bg-[#9a1a1a] shadow-lg border-y border-white/10 transition-all duration-300 py-2 mb-4 ${className}`}>
-        <div className="max-w-6xl mx-auto px-1 flex items-center justify-center gap-0.5 md:gap-2">
-            
-            {/* Backward Buttons */}
-            <div className="flex gap-0.5 md:gap-2">
-                <NavButton delta={-1000} current={currentRank} total={totalSongs} onClick={() => handleJump(-1000)} />
-                <NavButton delta={-100} current={currentRank} total={totalSongs} onClick={() => handleJump(-100)} />
-                <NavButton delta={-50} current={currentRank} total={totalSongs} onClick={() => handleJump(-50)} />
-            </div>
+    <>
+        <div ref={sentinelRef} className="h-px w-full -mb-px pointer-events-none opacity-0" />
+        <div className={`sticky top-16 z-40 transition-all duration-500 ease-in-out py-2 mb-4 ${
+            isSticky 
+                ? 'bg-black/60 backdrop-blur-xl shadow-lg border-y border-white/10' 
+                : 'bg-transparent border-y border-transparent shadow-none'
+        } ${className}`}>
+            <div className="max-w-6xl mx-auto px-2 flex items-center justify-between gap-1 md:gap-2">
+                
+                {/* Backward Buttons */}
+                <div className="flex flex-[3] gap-1 md:gap-2 min-w-0">
+                    <NavButton delta={-1000} current={currentRank} total={totalSongs} onClick={() => handleJump(-1000)} />
+                    <NavButton delta={-100} current={currentRank} total={totalSongs} onClick={() => handleJump(-100)} />
+                    <NavButton delta={-50} current={currentRank} total={totalSongs} onClick={() => handleJump(-50)} />
+                </div>
 
-            {/* Input */}
-            <form onSubmit={handleInputSubmit} className="flex-shrink-0 mx-0.5 md:mx-2">
-                <input 
-                    type="number" 
-                    placeholder={currentRank.toString()} 
-                    value={targetInput}
-                    onChange={handleInputChange}
-                    className="w-12 md:w-20 px-0 md:px-2 py-1.5 text-center rounded text-gray-900 font-bold outline-none border-2 border-transparent focus:border-white bg-white/90 placeholder-gray-500 text-xs md:text-sm"
-                />
-            </form>
+                {/* Input */}
+                <form onSubmit={handleInputSubmit} className="flex-[1] min-w-0 mx-1">
+                    <input 
+                        type="number" 
+                        placeholder={currentRank.toString()} 
+                        value={targetInput}
+                        onChange={handleInputChange}
+                        className="w-full px-0 py-1.5 text-center rounded text-gray-900 font-bold outline-none border-2 border-transparent focus:border-white bg-white/90 placeholder-gray-500 text-xs md:text-sm"
+                    />
+                </form>
 
-            {/* Forward Buttons */}
-            <div className="flex gap-0.5 md:gap-2">
-                <NavButton delta={50} current={currentRank} total={totalSongs} onClick={() => handleJump(50)} />
-                <NavButton delta={100} current={currentRank} total={totalSongs} onClick={() => handleJump(100)} />
-                <NavButton delta={1000} current={currentRank} total={totalSongs} onClick={() => handleJump(1000)} />
+                {/* Forward Buttons */}
+                <div className="flex flex-[3] gap-1 md:gap-2 min-w-0">
+                    <NavButton delta={50} current={currentRank} total={totalSongs} onClick={() => handleJump(50)} />
+                    <NavButton delta={100} current={currentRank} total={totalSongs} onClick={() => handleJump(100)} />
+                    <NavButton delta={1000} current={currentRank} total={totalSongs} onClick={() => handleJump(1000)} />
+                </div>
             </div>
         </div>
-    </div>
+    </>
   );
 };
 
@@ -74,7 +102,7 @@ const NavButton = ({ delta, current, total, onClick }: { delta: number, current:
         <button 
             onClick={onClick}
             disabled={disabled}
-            className={`px-1 md:px-3 py-1.5 rounded font-bold text-[10px] md:text-sm uppercase tracking-tight md:tracking-wider border transition-all whitespace-nowrap ${
+            className={`flex-1 min-w-0 px-1 py-1.5 rounded font-bold text-[10px] md:text-sm uppercase tracking-tight md:tracking-wider border transition-all whitespace-nowrap overflow-hidden text-ellipsis ${
                 disabled 
                     ? 'border-gray-500/50 text-gray-400 cursor-not-allowed bg-black/10' 
                     : 'bg-transparent text-white border-white hover:bg-white/10'
