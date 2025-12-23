@@ -67,18 +67,10 @@ const App: React.FC = () => {
   // Sticky Nav State
   const filtersRef = useRef<HTMLDivElement>(null);
   const [currentRank, setCurrentRank] = useState(1);
-  const [showStickyNav, setShowStickyNav] = useState(false);
 
-  // Scroll Handler for Sticky Nav and Rank Detection
+  // Scroll Handler for Rank Detection
   useEffect(() => {
     const handleScroll = () => {
-        // Sticky Nav Visibility
-        if (filtersRef.current) {
-            const rect = filtersRef.current.getBoundingClientRect();
-            // Header is 64px (h-16). If filters bottom < 64, it's scrolled past.
-            setShowStickyNav(rect.bottom < 64);
-        }
-
         // Current Rank Detection
         // Check center of screen or top third
         const headerOffset = 180; 
@@ -975,13 +967,6 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            <StickyNavigation 
-                currentRank={currentRank}
-                totalSongs={2000}
-                onJump={handleJumpToRank}
-                isVisible={showStickyNav}
-            />
-
             <div className="p-4 md:p-6 space-y-3">
                  {loading ? (
                     <div className="text-center py-20">
@@ -994,6 +979,12 @@ const App: React.FC = () => {
                         <div className="text-white/70 text-sm font-bold uppercase tracking-wider mb-2 px-1">
                             {processedSongs.length} {processedSongs.length === 1 ? 'Resultaat' : 'Resultaten'}
                         </div>
+
+                        <StickyNavigation 
+                            currentRank={currentRank}
+                            totalSongs={processedSongs.length}
+                            onJump={handleJumpToRank}
+                        />
 
                         {visibleSongs.length > 0 ? (
                             visibleSongs.map((song, idx) => {
