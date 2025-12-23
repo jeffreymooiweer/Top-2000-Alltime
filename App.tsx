@@ -675,7 +675,7 @@ const App: React.FC = () => {
           </div>
       )}
 
-      <header className="bg-[#e60028] text-white shadow-lg sticky top-0 z-50">
+      <header className="bg-gradient-to-r from-[#9a1a1a]/95 to-[#2b0505]/95 backdrop-blur-md text-white shadow-lg sticky top-0 z-50 transition-all duration-300">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
                 <button className="text-white hover:bg-white/10 p-2 rounded transition" onClick={() => setIsMenuOpen(true)}>

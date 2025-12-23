@@ -33,7 +33,7 @@ const StickyNavigation: React.FC<StickyNavigationProps> = ({
   };
 
   return (
-    <div className={`sticky top-16 z-40 bg-[#e60028] shadow-lg border-y border-white/10 transition-all duration-300 py-2 mb-4 ${className}`}>
+    <div className={`sticky top-16 z-40 bg-gradient-to-r from-[#9a1a1a]/95 to-[#2b0505]/95 backdrop-blur-md shadow-lg border-y border-white/10 transition-all duration-300 py-2 mb-4 ${className}`}>
         <div className="max-w-6xl mx-auto px-2 flex items-center justify-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
             
             {/* Backward Buttons */}
