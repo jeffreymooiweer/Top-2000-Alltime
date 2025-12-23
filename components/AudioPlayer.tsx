@@ -1,4 +1,8 @@
-import React, { useRef, useState, useEffect, memo, useCallback } from 'react';
+import React, { useState, useEffect, memo, useCallback } from 'react';
+
+// Global Audio Singleton
+const globalAudio = new Audio();
+let stopCurrentPlayer: (() => void) | null = null;
 
 interface AudioPlayerProps {
   previewUrl: string | undefined | null;
@@ -7,109 +11,91 @@ interface AudioPlayerProps {
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = memo(({ previewUrl, mini = false, className = '' }) => {
-  const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
+  // Cleanup on unmount if this is the active player
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    // Reset when URL changes
-    setIsPlaying(false);
-    setHasError(false);
-    setRetryCount(0);
-
-    if (previewUrl) {
-        audio.load();
-    }
-
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleEnded = () => setIsPlaying(false);
-    
-    const handleError = () => {
-        const err = audio.error;
-        console.warn("Audio playback error:", err);
-        
-        // Endless retry logic for network errors
-        // We assume eventually the connection or rate limit clears up
-        const nextRetry = retryCount + 1;
-        setRetryCount(nextRetry);
-        
-        // Calculate delay: 1s, 2s, 4s... capped at 10s
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-        
-        console.log(`Retrying audio in ${delay}ms (Attempt ${nextRetry})`);
-
-        setTimeout(() => {
-            if (audioRef.current && previewUrl) {
-                // Force reload of the resource
-                audioRef.current.src = previewUrl; 
-                audioRef.current.load();
-                // If it was playing before error, try to resume? 
-                // Better not to auto-play to avoid startling user, just fix the buffer.
-                setHasError(false);
-            }
-        }, delay);
-        
-        // While waiting, show error state slightly
-        setHasError(true);
-    };
-    
-    const handleCanPlay = () => {
-        setHasError(false);
-        // If we recovered from an error and user wanted to play, we could auto-play here,
-        // but explicit user action is safer.
-    };
-
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('error', handleError);
-    audio.addEventListener('canplay', handleCanPlay);
-    audio.addEventListener('loadeddata', handleCanPlay);
-
     return () => {
-      audio.pause();
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('pause', handlePause);
-      audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('error', handleError);
-      audio.removeEventListener('canplay', handleCanPlay);
-      audio.removeEventListener('loadeddata', handleCanPlay);
+      if (isPlaying && stopCurrentPlayer) {
+        // If we are unmounting but playing, pause the global audio
+        // Check if we are really the one playing (url check)
+        // Actually, relying on isPlaying state is safe here
+        globalAudio.pause();
+        stopCurrentPlayer = null;
+      }
     };
-  }, [previewUrl, retryCount]);
+  }, [isPlaying]);
+
+  const handleAudioEvents = useCallback(() => {
+    // These handlers are attached to the global audio when THIS component takes control
+    
+    globalAudio.onended = () => {
+      setIsPlaying(false);
+      stopCurrentPlayer = null;
+    };
+
+    globalAudio.onpause = () => {
+      // This triggers if paused by code or user. 
+      // We need to differentiate between "switched to another song" and "paused this song".
+      // If switched, stopCurrentPlayer would have been called already by the new player.
+      // But checking here ensures UI sync.
+      setIsPlaying(false);
+    };
+
+    globalAudio.onerror = () => {
+      const err = globalAudio.error;
+      console.warn("Audio playback error:", err);
+      
+      setHasError(true);
+      setIsPlaying(false);
+      
+      // Retry logic logic could be here, but global singleton makes it trickier.
+      // For now, simple error indication.
+    };
+
+    globalAudio.onplay = () => {
+        setIsPlaying(true);
+        setHasError(false);
+    };
+  }, []);
 
   const togglePlay = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    const audio = audioRef.current;
-    if (!audio || !previewUrl) return;
+    if (!previewUrl) return;
 
     if (isPlaying) {
-      audio.pause();
+      globalAudio.pause();
+      // onpause handler will update state
     } else {
-      // Pause others
-      document.querySelectorAll('audio').forEach((el) => {
-        if (el !== audio) (el as HTMLAudioElement).pause();
-      });
+      // Stop previous player if exists
+      if (stopCurrentPlayer) {
+        stopCurrentPlayer();
+      }
+
+      // Set this component as the active player stopper
+      stopCurrentPlayer = () => {
+        setIsPlaying(false);
+      };
 
       try {
-        await audio.play();
+        globalAudio.src = previewUrl;
+        
+        // Setup events
+        handleAudioEvents();
+
+        await globalAudio.play();
         setHasError(false);
       } catch (err) {
         console.error("Play request failed:", err);
-        // If play fails immediately (e.g. strict browser policy or network), trigger error handler
-        // to start the retry loop
-        if (audioRef.current) {
-             const event = new Event('error');
-             audioRef.current.dispatchEvent(event);
-        }
+        setHasError(true);
+        setIsPlaying(false);
+        stopCurrentPlayer = null;
       }
     }
-  }, [previewUrl, isPlaying]);
+  }, [previewUrl, isPlaying, handleAudioEvents]);
 
   if (!previewUrl) return null;
 
@@ -118,13 +104,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = memo(({ previewUrl, mini = false
         className={`flex items-center justify-center ${className} ${hasError ? 'opacity-50' : ''}`} 
         onClick={(e) => e.stopPropagation()}
     >
-      <audio 
-        ref={audioRef} 
-        src={previewUrl} 
-        preload="none"
-        className="hidden"
-      />
-      
       <button
         onClick={togglePlay}
         className={`${

@@ -9,9 +9,10 @@ interface SongCardProps {
   rank: number;
   previousRank?: number | null; // Optional to support existing calls, but logic expects it for badge
   onSelect: (song: SongData) => void;
+  index: number;
 }
 
-const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSelect }) => {
+const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSelect, index }) => {
   const [coverUrl, setCoverUrl] = useState<string | null | undefined>(song.coverUrl);
   const [previewUrl, setPreviewUrl] = useState<string | null | undefined>(song.previewUrl);
   const [isVisible, setIsVisible] = useState(false);
@@ -89,6 +90,8 @@ const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSe
   return (
     <div 
         ref={cardRef}
+        id={`song-card-${index}`}
+        data-rank={rank}
         onClick={handleClick}
         className="bg-white rounded overflow-hidden flex shadow-md group cursor-pointer transition-transform duration-200 hover:-translate-y-1 min-h-[96px] items-stretch"
     >
