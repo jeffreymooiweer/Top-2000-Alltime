@@ -17,6 +17,7 @@ import {
 import SongCard from './components/SongCard';
 import NewsFeed from './components/NewsFeed';
 import StreamingSetupModal from './components/StreamingSetupModal';
+import StickyNavigation from './components/StickyNavigation';
 
 // Lazy load Modal component (large component with chart and analysis)
 const Modal = lazy(() => import('./components/Modal'));
@@ -62,6 +63,82 @@ const App: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const spotifyCallbackProcessed = useRef(false);
   const abortController = useRef<AbortController | null>(null);
+  
+  // Sticky Nav State
+  const filtersRef = useRef<HTMLDivElement>(null);
+  const [currentRank, setCurrentRank] = useState(1);
+  const [showStickyNav, setShowStickyNav] = useState(false);
+
+  // Scroll Handler for Sticky Nav and Rank Detection
+  useEffect(() => {
+    const handleScroll = () => {
+        // Sticky Nav Visibility
+        if (filtersRef.current) {
+            const rect = filtersRef.current.getBoundingClientRect();
+            // Header is 64px (h-16). If filters bottom < 64, it's scrolled past.
+            setShowStickyNav(rect.bottom < 64);
+        }
+
+        // Current Rank Detection
+        // Check center of screen or top third
+        const headerOffset = 180; 
+        const el = document.elementFromPoint(window.innerWidth / 2, headerOffset);
+        const card = el?.closest('[data-rank]');
+        if (card) {
+            const r = parseInt(card.getAttribute('data-rank') || '1');
+            if (!isNaN(r)) setCurrentRank(r);
+        }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleJumpToRank = (targetRank: number) => {
+      let targetIndex = -1;
+      
+      // Find the song with this rank in the current processed list
+      if (selectedYear === 'all-time') {
+           targetIndex = processedSongs.findIndex(s => (s.allTimeRank || 9999) === targetRank);
+      } else {
+           targetIndex = processedSongs.findIndex(s => (s.rankings[selectedYear] as number) === targetRank);
+      }
+      
+      if (targetIndex === -1) {
+          alert(`Positie ${targetRank} is niet gevonden in de huidige lijst.`);
+          return;
+      }
+
+      // Ensure visible
+      if (targetIndex >= visibleCount) {
+          setVisibleCount(Math.min(targetIndex + 50, processedSongs.length));
+          
+          // Wait for render
+          setTimeout(() => {
+              const el = document.getElementById(`song-card-${targetIndex}`);
+              if (el) {
+                  const headerOffset = 130; // Main header (64) + Sticky
+                  const elementPosition = el.getBoundingClientRect().top;
+                  const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                  window.scrollTo({
+                      top: offsetPosition,
+                      behavior: "smooth"
+                  });
+              }
+          }, 100);
+      } else {
+          const el = document.getElementById(`song-card-${targetIndex}`);
+          if (el) {
+              const headerOffset = 130;
+              const elementPosition = el.getBoundingClientRect().top;
+              const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+              window.scrollTo({
+                  top: offsetPosition,
+                  behavior: "smooth"
+              });
+          }
+      }
+  };
   
   // Refs for click-outside detection
   const downloadButtonRef = useRef<HTMLButtonElement>(null);
@@ -728,7 +805,7 @@ const App: React.FC = () => {
         <div className={`bg-gradient-to-b from-[#9a1a1a] to-[#2b0505] min-h-screen ${debouncedSearchQuery ? 'rounded-t-xl' : 'rounded-t-none'} overflow-visible shadow-2xl relative pb-10`}>
             
             {/* Header / Controls Section */}
-            <div className="px-4 pt-8 pb-4 space-y-4">
+            <div ref={filtersRef} className="px-4 pt-8 pb-4 space-y-4">
                 
                 {/* Row 1: Title and Action Buttons */}
                 <div className="flex justify-between items-start">
@@ -898,6 +975,13 @@ const App: React.FC = () => {
                 </div>
             </div>
 
+            <StickyNavigation 
+                currentRank={currentRank}
+                totalSongs={2000}
+                onJump={handleJumpToRank}
+                isVisible={showStickyNav}
+            />
+
             <div className="p-4 md:p-6 space-y-3">
                  {loading ? (
                     <div className="text-center py-20">
@@ -935,6 +1019,7 @@ const App: React.FC = () => {
                                         rank={displayRank} 
                                         previousRank={previousRank}
                                         onSelect={handleSelectSong} 
+                                        index={idx}
                                     />
                                 );
                             })
