@@ -1,0 +1,20 @@
+{
+  "short_name": "Top 2000",
+  "name": "Top 2000 Allertijden",
+  "icons": [
+    {
+      "src": "/Image/NPO_Radio_2_Top_2000_logo.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/Image/NPO_Radio_2_Top_2000_logo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#d00018",
+  "background_color": "#ffffff"
+}
