@@ -74,6 +74,7 @@ export const fetchSongMetadata = async (artist: string, title: string): Promise<
           const clean = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
           const queries = [
             `${artist} ${title}`,
+            `${clean(artist)} ${clean(title)}`,
             `${title} ${artist}`,
             title
           ];
