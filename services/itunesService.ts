@@ -7,16 +7,27 @@ interface MetadataCacheEntry {
 const memoryCache: Map<string, MetadataCacheEntry> = new Map();
 const pendingRequests = new Map<string, Promise<{ coverUrl: string | null; previewUrl: string | null }>>();
 
+// Helper for Fetch with Timeout
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout = 3000): Promise<Response> => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        return response;
+    } finally {
+        clearTimeout(id);
+    }
+};
+
 // Helper for JSONP requests to bypass CORS
 const fetchJsonp = (url: string): Promise<any> => {
     return new Promise((resolve, reject) => {
-        const callbackName = 'itunes_callback_' + Math.random().toString(36).substr(2, 9);
+        const callbackName = 'itunes_callback_' + Math.round(100000 * Math.random());
         const script = document.createElement('script');
         
-        // Timeout handling
         const timeoutId = setTimeout(() => {
             cleanup();
-            reject(new Error('JSONP timeout'));
+            reject(new Error(`JSONP timeout for ${url}`));
         }, 5000);
 
         const cleanup = () => {
@@ -34,7 +45,9 @@ const fetchJsonp = (url: string): Promise<any> => {
             resolve(data);
         };
 
-        script.src = `${url}&callback=${callbackName}`;
+        const sep = url.includes('?') ? '&' : '?';
+        script.src = `${url}${sep}callback=${callbackName}`;
+        
         script.onerror = () => {
             cleanup();
             reject(new Error('JSONP script load error'));
@@ -42,6 +55,15 @@ const fetchJsonp = (url: string): Promise<any> => {
 
         document.body.appendChild(script);
     });
+};
+
+// Helper for Proxy Fallback
+const fetchViaProxy = async (targetUrl: string): Promise<any> => {
+    // Using AllOrigins as a reliable CORS proxy
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    const res = await fetchWithTimeout(proxyUrl, {}, 10000);
+    if (!res.ok) throw new Error(`Proxy error: ${res.status}`);
+    return res.json();
 };
 
 export const fetchSongMetadata = async (artist: string, title: string): Promise<{ coverUrl: string | null; previewUrl: string | null }> => {
@@ -58,20 +80,28 @@ export const fetchSongMetadata = async (artist: string, title: string): Promise<
   const processPromise = (async () => {
       let data: { coverUrl: string | null; previewUrl: string | null } = { coverUrl: null, previewUrl: null };
 
-      // 1. Try Worker Cache
+      // 1. Try Worker Cache (Fastest)
       try {
-          const response = await fetch(`https://api.top2000allertijden.nl/itunes?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
+          // Use timeout to avoid hanging on Cloudflare challenges
+          const response = await fetchWithTimeout(`https://api.top2000allertijden.nl/itunes?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`, {}, 2000);
+          
           if (response.ok) {
-              data = await response.json();
-              return data;
+              const contentType = response.headers.get("content-type");
+              if (contentType && contentType.includes("application/json")) {
+                  data = await response.json();
+                  // Only return if we actually have data, otherwise fall through to search
+                  if (data.coverUrl || data.previewUrl) {
+                      return data;
+                  }
+              }
           }
       } catch (e) {
-          console.warn("Worker cache check failed", e);
+          // Silent fail on worker error
+          console.warn("Worker cache check failed/skipped", e);
       }
 
-      // 2. Fetch from iTunes Client-side (Fallback)
+      // 2. Fetch from iTunes (Fallback Strategies)
       try {
-          const clean = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
           const queries = [
             `${artist} ${title}`,
             `${title} ${artist}`,
@@ -79,42 +109,48 @@ export const fetchSongMetadata = async (artist: string, title: string): Promise<
           ];
 
           for (const q of queries) {
-              // Try JSONP for iTunes as it supports it and avoids CORS issues
-              const url = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=1&country=NL`;
+              const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=1&country=NL`;
               
+              let result = null;
+
+              // Strategy A: JSONP (Preferred for Client-side)
               try {
-                  const json = await fetchJsonp(url);
-                  
-                  if (json.results && json.results.length > 0) {
-                      const track = json.results[0];
-                      data = {
-                          coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100', '600x600') : null,
-                          previewUrl: track.previewUrl
-                      };
-
-                      // 3. Cache result in Worker
-                      // Fire and forget - don't block return
-                      fetch('https://api.top2000allertijden.nl/itunes', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                              artist,
-                              title,
-                              coverUrl: data.coverUrl,
-                              previewUrl: data.previewUrl
-                          })
-                      }).catch(err => console.error("Failed to cache in worker", err));
-
-                      break;
+                  result = await fetchJsonp(itunesUrl);
+              } catch (jsonpErr) {
+                  // Strategy B: Proxy (Last Resort)
+                  try {
+                       console.log("JSONP failed, trying Proxy...", q);
+                       result = await fetchViaProxy(itunesUrl);
+                  } catch (proxyErr) {
+                       // console.warn("Proxy failed too", proxyErr);
                   }
-              } catch (innerErr) {
-                  // Fallback to fetch if JSONP fails (unlikely for iTunes, but good safety)
-                   // console.warn("JSONP failed, trying fetch", innerErr);
-                   // If JSONP fails, normal fetch will likely fail too due to CORS, but let's leave it as is.
+              }
+
+              // Process Result
+              if (result && result.results && result.results.length > 0) {
+                  const track = result.results[0];
+                  data = {
+                      coverUrl: track.artworkUrl100 ? track.artworkUrl100.replace('100x100', '600x600') : null,
+                      previewUrl: track.previewUrl
+                  };
+
+                  // 3. Cache result in Worker (Fire and forget)
+                  fetch('https://api.top2000allertijden.nl/itunes', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          artist,
+                          title,
+                          coverUrl: data.coverUrl,
+                          previewUrl: data.previewUrl
+                      })
+                  }).catch(() => {}); // Ignore cache errors
+
+                  break; // Found it!
               }
           }
       } catch (e) {
-          console.error("iTunes client fetch failed", e);
+          console.error("iTunes search completely failed", e);
       }
       
       return data;
