@@ -3,9 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Top 2000 Allertijden - De ultieme lijst gebaseerd op historische data van NPO Radio 2" />
-    <title>Top 2000 Allertijden</title>
-    <link rel="icon" type="image/png" href="/Image/NPO_Radio_2_Top_2000_logo.png" />
+    <title>Top 2000 Allertijden - NPO Radio 2 - De Complete Lijst & Statistieken</title>
+    <meta name="description" content="Bekijk de volledige Top 2000 Allertijden lijst van NPO Radio 2. Zoek nummers, bekijk statistieken per jaar, exporteer naar Spotify of YouTube en ontdek nieuwkomers en stijgers." />
+    <meta name="keywords" content="Top 2000, Top 2000 Allertijden, NPO Radio 2, Radio 2, Lijst der lijsten, Muziek, Hitlijst, Bohemian Rhapsody, Statistieken, Spotify Playlist, YouTube Playlist" />
+    <meta name="author" content="Jeffrey Mooiweer" />
+    <meta name="theme-color" content="#d00018" />
+    
+    <!-- Canonical -->
+    <link rel="canonical" href="https://top2000allertijden.nl/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://top2000allertijden.nl/" />
+    <meta property="og:title" content="Top 2000 Allertijden - De Complete Lijst & Statistieken" />
+    <meta property="og:description" content="Bekijk de complete Top 2000 Allertijden. Ontdek de historie van alle nummers, filter op jaar, en maak direct afspeellijsten voor Spotify en YouTube." />
+    <meta property="og:image" content="https://top2000allertijden.nl/Image/NPO_Radio_2_Top_2000_logo.png" />
+    <meta property="og:site_name" content="Top 2000 Allertijden" />
+    <meta property="og:locale" content="nl_NL" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://top2000allertijden.nl/" />
+    <meta property="twitter:title" content="Top 2000 Allertijden - De Complete Lijst" />
+    <meta property="twitter:description" content="De ultieme Top 2000 database. Bekijk statistieken, grafieken en exporteer playlists." />
+    <meta property="twitter:image" content="https://top2000allertijden.nl/Image/NPO_Radio_2_Top_2000_logo.png" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/Image/NPO_Radio_2_Top_2000_logo.png" />
+    <link rel="apple-touch-icon" href="/Image/NPO_Radio_2_Top_2000_logo.png" />
+    <link rel="manifest" href="/manifest.json" />
 
     <!-- Preconnect to external domains for faster loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -52,6 +78,27 @@
 
   <body>
     <div id="root"></div>
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Top 2000 Allertijden",
+        "url": "https://top2000allertijden.nl/",
+        "description": "De ultieme lijst gebaseerd op historische data van NPO Radio 2.",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://top2000allertijden.nl/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Jeffrey Mooiweer",
+          "url": "https://mooiweer.me"
+        }
+      }
+    </script>
 
     <!-- Vite entry point -->
     <script type="module" src="./index.tsx"></script>

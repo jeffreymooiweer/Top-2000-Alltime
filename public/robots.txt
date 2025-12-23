@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://top2000allertijden.nl/sitemap.xml
