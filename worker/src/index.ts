@@ -200,7 +200,7 @@ async function handleiTunesPost(request, env, corsHeaders) {
             return new Response('Missing artist or title', { status: 400, headers: corsHeaders });
         }
 
-        const cacheKey = `itunes-v2:${artist.toLowerCase()}:${title.toLowerCase()}`.replace(/\s+/g, '-');
+        const cacheKey = `itunes-v2:${artist.trim().toLowerCase()}:${title.trim().toLowerCase()}`.replace(/\s+/g, '-');
         
         // Store in KV
         // 7 days expiration
@@ -229,7 +229,7 @@ async function handleiTunesGet(artist, title, env, corsHeaders) {
 
   // 2. Return 404 to trigger client-side fetch
   // We no longer fetch server-side because it's prone to blocking
-  return new Response(null, { status: 404, headers: { ...corsHeaders, 'X-Cache': 'MISS' } });
+  return new Response(null, { status: 404, headers: { ...corsHeaders, 'X-Cache': 'MISS', 'Cache-Control': 'no-cache' } });
 }
  
 function handleAuthLogin(service, env) {
