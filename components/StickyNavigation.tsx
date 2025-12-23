@@ -33,29 +33,29 @@ const StickyNavigation: React.FC<StickyNavigationProps> = ({
   };
 
   return (
-    <div className={`sticky top-16 z-40 bg-[#e60028] shadow-lg border-y border-white/10 transition-all duration-300 py-2 mb-4 ${className}`}>
-        <div className="max-w-6xl mx-auto px-2 flex items-center justify-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
+    <div className={`sticky top-16 z-40 bg-[#9a1a1a]/90 backdrop-blur-md shadow-lg border-y border-white/10 transition-all duration-300 py-2 mb-4 ${className}`}>
+        <div className="max-w-6xl mx-auto px-2 flex items-center justify-start md:justify-center gap-1 md:gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
             
             {/* Backward Buttons */}
-            <div className="flex gap-2">
+            <div className="flex gap-1 md:gap-2">
                 <NavButton delta={-1000} current={currentRank} total={totalSongs} onClick={() => handleJump(-1000)} />
                 <NavButton delta={-100} current={currentRank} total={totalSongs} onClick={() => handleJump(-100)} />
                 <NavButton delta={-50} current={currentRank} total={totalSongs} onClick={() => handleJump(-50)} />
             </div>
 
             {/* Input */}
-            <form onSubmit={handleInputSubmit} className="flex-shrink-0 mx-2">
+            <form onSubmit={handleInputSubmit} className="flex-shrink-0 mx-1 md:mx-2">
                 <input 
                     type="number" 
                     placeholder={currentRank.toString()} 
                     value={targetInput}
                     onChange={handleInputChange}
-                    className="w-20 px-2 py-1.5 text-center rounded text-gray-900 font-bold outline-none border-2 border-transparent focus:border-white bg-white/90 placeholder-gray-500"
+                    className="w-16 md:w-20 px-1 md:px-2 py-1.5 text-center rounded text-gray-900 font-bold outline-none border-2 border-transparent focus:border-white bg-white/90 placeholder-gray-500"
                 />
             </form>
 
             {/* Forward Buttons */}
-            <div className="flex gap-2">
+            <div className="flex gap-1 md:gap-2">
                 <NavButton delta={50} current={currentRank} total={totalSongs} onClick={() => handleJump(50)} />
                 <NavButton delta={100} current={currentRank} total={totalSongs} onClick={() => handleJump(100)} />
                 <NavButton delta={1000} current={currentRank} total={totalSongs} onClick={() => handleJump(1000)} />
@@ -74,10 +74,10 @@ const NavButton = ({ delta, current, total, onClick }: { delta: number, current:
         <button 
             onClick={onClick}
             disabled={disabled}
-            className={`px-3 py-1.5 rounded font-bold text-xs md:text-sm uppercase tracking-wider border transition-all ${
+            className={`px-2 md:px-3 py-1.5 rounded font-bold text-xs md:text-sm uppercase tracking-wider border transition-all ${
                 disabled 
-                    ? 'border-transparent text-white/30 cursor-not-allowed' 
-                    : 'bg-transparent text-white border-white/30 hover:border-white hover:bg-white/10'
+                    ? 'border-gray-500/50 text-gray-400 cursor-not-allowed bg-black/10' 
+                    : 'bg-transparent text-white border-white hover:bg-white/10'
             }`}
         >
             {label}
