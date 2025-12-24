@@ -771,7 +771,7 @@ const App: React.FC = () => {
                         {
                             name: 'Apple Music',
                             icon: 'icon_apple.png',
-                            link: '#'
+                            link: 'https://music.apple.com/nl/playlist/top-2000-allertijden/pl.u-xlyNEpVtJ5YdxDM?ls'
                         }
                     ].map((service) => (
                         <a 
