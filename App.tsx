@@ -62,6 +62,7 @@ const App: React.FC = () => {
   const observerTarget = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const spotifyCallbackProcessed = useRef(false);
+  const initialUrlProcessed = useRef(false);
   const abortController = useRef<AbortController | null>(null);
   
   // Sticky Nav State
@@ -179,6 +180,110 @@ const App: React.FC = () => {
         .sort((a, b) => parseInt(b) - parseInt(a));
     return years;
   }, [songs]);
+
+  // SEO & Deep Linking: Restore state from URL on load
+  useEffect(() => {
+    if (loading || songs.length === 0 || initialUrlProcessed.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    
+    // Restore Year
+    const yearParam = params.get('year');
+    if (yearParam) {
+        if (yearParam === 'all-time' || availableYears.includes(yearParam)) {
+             setSelectedYear(yearParam);
+        }
+    }
+
+    // Restore Search
+    const searchParam = params.get('q');
+    if (searchParam) {
+        setSearchQuery(searchParam);
+    }
+
+    // Restore Selected Song (Modal)
+    const songId = params.get('song');
+    if (songId) {
+        const song = songs.find(s => s.id === songId);
+        if (song) {
+            setSelectedSong(song);
+        }
+    }
+    
+    initialUrlProcessed.current = true;
+  }, [loading, songs, availableYears]);
+
+  // SEO & Deep Linking: Update URL and Meta tags when state changes
+  useEffect(() => {
+      // Don't update URL during initial load phase or if we haven't processed the initial URL yet
+      if (loading || !initialUrlProcessed.current) return;
+
+      const params = new URLSearchParams(window.location.search);
+      let title = "Top 2000 Allertijden - NPO Radio 2 - De Complete Lijst & Statistieken";
+      
+      // Update Params & Title based on Year
+      if (selectedYear !== 'all-time') {
+          params.set('year', selectedYear);
+          title = `Top 2000 van ${selectedYear} - Top 2000 Allertijden`;
+      } else {
+          params.delete('year');
+      }
+
+      // Update Params & Title based on Search
+      if (debouncedSearchQuery) {
+          params.set('q', debouncedSearchQuery);
+          title = `Zoeken: ${debouncedSearchQuery} - Top 2000 Allertijden`;
+      } else {
+          params.delete('q');
+      }
+
+      // Update Params & Title based on Selected Song
+      if (selectedSong) {
+          params.set('song', selectedSong.id);
+          title = `${selectedSong.title} - ${selectedSong.artist} | Top 2000 Statistieken`;
+      } else {
+          params.delete('song');
+      }
+
+      // Apply URL (using replaceState to keep history clean)
+      const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+      
+      // Avoid infinite loop or unnecessary updates
+      if (window.location.search !== `?${params.toString()}`) {
+          window.history.replaceState(null, '', newUrl);
+      }
+      
+      document.title = title;
+
+      // Update Meta Description
+      const metaDescription = document.querySelector('meta[name="description"]');
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      const twitterTitle = document.querySelector('meta[property="twitter:title"]');
+      const twitterDesc = document.querySelector('meta[property="twitter:description"]');
+
+      if (metaDescription) {
+          if (selectedSong) {
+             const desc = `Bekijk de statistieken en historie van ${selectedSong.title} door ${selectedSong.artist} in de Top 2000 Allertijden.`;
+             metaDescription.setAttribute('content', desc);
+             if (ogDesc) ogDesc.setAttribute('content', desc);
+             if (twitterDesc) twitterDesc.setAttribute('content', desc);
+             
+             if (ogTitle) ogTitle.setAttribute('content', title);
+             if (twitterTitle) twitterTitle.setAttribute('content', title);
+
+          } else {
+             const desc = "Bekijk de volledige Top 2000 Allertijden lijst van NPO Radio 2. Zoek nummers, bekijk statistieken per jaar, exporteer naar Spotify of YouTube.";
+             metaDescription.setAttribute('content', desc);
+             if (ogDesc) ogDesc.setAttribute('content', desc);
+             if (twitterDesc) twitterDesc.setAttribute('content', desc);
+
+             if (ogTitle) ogTitle.setAttribute('content', "Top 2000 Allertijden - De Complete Lijst & Statistieken");
+             if (twitterTitle) twitterTitle.setAttribute('content', "Top 2000 Allertijden - De Complete Lijst");
+          }
+      }
+
+  }, [loading, selectedYear, debouncedSearchQuery, selectedSong]);
 
   // Filter and Sort Songs based on Search AND Selected Year
   const processedSongs = useMemo(() => {
