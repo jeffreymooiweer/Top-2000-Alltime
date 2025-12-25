@@ -78,6 +78,7 @@ const StickyNavigation: React.FC<StickyNavigationProps> = ({
                         value={targetInput}
                         onChange={handleInputChange}
                         className="w-full px-0 py-1.5 text-center rounded text-gray-900 font-bold outline-none border-2 border-transparent focus:border-white bg-white/90 placeholder-gray-500 text-xs md:text-sm"
+                        aria-label="Ga naar positie"
                     />
                 </form>
 

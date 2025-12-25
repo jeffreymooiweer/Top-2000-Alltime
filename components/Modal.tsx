@@ -187,6 +187,7 @@ const Modal: React.FC<ModalProps> = memo(({
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/20 hover:bg-black/40 rounded-full p-2 transition z-20"
+            aria-label="Sluiten"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -199,6 +200,7 @@ const Modal: React.FC<ModalProps> = memo(({
             disabled={!hasPrevious}
             className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition z-20 ${hasPrevious ? 'text-white/70 hover:text-white hover:bg-black/20' : 'text-white/20 cursor-not-allowed'}`}
             title="Vorige (Pijl Links)"
+            aria-label="Vorige (Pijl Links)"
           >
             <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -210,6 +212,7 @@ const Modal: React.FC<ModalProps> = memo(({
             disabled={!hasNext}
             className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition z-20 ${hasNext ? 'text-white/70 hover:text-white hover:bg-black/20' : 'text-white/20 cursor-not-allowed'}`}
             title="Volgende (Pijl Rechts)"
+            aria-label="Volgende (Pijl Rechts)"
           >
             <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

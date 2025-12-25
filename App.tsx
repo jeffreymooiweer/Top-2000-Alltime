@@ -717,7 +717,7 @@ const App: React.FC = () => {
   }, [streamingSetupService]);
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] font-sans">
+    <div className="min-h-screen bg-[#f3f4f6] font-sans flex flex-col">
       
       {isMenuOpen && (
           <div className="fixed inset-0 z-50 flex">
@@ -767,11 +767,11 @@ const App: React.FC = () => {
 
                   <div className="mt-auto pt-6 border-t border-white/20 text-white/80 text-sm">
                        <div className="flex items-center justify-center gap-4 mb-4">
-                          <a href="https://github.com/jeffreymooiweer/Top-2000-Alltime" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition">
-                              <img src={`${import.meta.env.BASE_URL}Image/GitHub-Emblem.png`} alt="GitHub" className="h-6 w-auto" />
+                          <a href="https://github.com/jeffreymooiweer/Top-2000-Alltime" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition" aria-label="Bekijk broncode op GitHub">
+                              <img src={`${import.meta.env.BASE_URL}Image/GitHub-Emblem.png`} alt="GitHub" className="h-6 w-auto" width="24" height="24" />
                           </a>
-                          <a href="https://www.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition">
-                              <img src={`${import.meta.env.BASE_URL}Image/Cloudflare_Logo.svg.png`} alt="Cloudflare" className="h-6 w-auto" />
+                          <a href="https://www.cloudflare.com/" target="_blank" rel="noopener noreferrer" className="opacity-80 hover:opacity-100 transition" aria-label="Gehost door Cloudflare">
+                              <img src={`${import.meta.env.BASE_URL}Image/Cloudflare_Logo.svg.png`} alt="Cloudflare" className="h-6 w-auto" width="24" height="24" />
                           </a>
                        </div>
                        <p className="text-xs whitespace-nowrap">© 2025 Top 2000 Allertijden - <a href="https://mooiweer.me" target="_blank" rel="noopener noreferrer" className="hover:text-white underline decoration-white/30 hover:decoration-white transition">mooiweer.me</a></p>
@@ -783,7 +783,7 @@ const App: React.FC = () => {
       <header className="bg-[#e60028] text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
-                <button className="text-white hover:bg-white/10 p-2 rounded transition" onClick={() => setIsMenuOpen(true)}>
+                <button className="text-white hover:bg-white/10 p-2 rounded transition" onClick={() => setIsMenuOpen(true)} aria-label="Open menu">
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                 </button>
                 <div className="cursor-pointer" onClick={() => { setSearchQuery(''); setSelectedYear('all-time'); window.scrollTo(0,0); }}>
@@ -793,17 +793,19 @@ const App: React.FC = () => {
                     className="h-16 w-auto object-contain py-1"
                     loading="eager"
                     fetchPriority="high"
+                    width="128"
+                    height="64"
                    />
                 </div>
             </div>
 
-            <button onClick={handleNavbarSearchClick} className="p-2 hover:bg-white/10 rounded-full transition">
+            <button onClick={handleNavbarSearchClick} className="p-2 hover:bg-white/10 rounded-full transition" aria-label="Zoeken">
                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </button>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto md:px-4">
+      <main className="max-w-6xl mx-auto md:px-4 flex-grow w-full">
       
         {!debouncedSearchQuery && (
             <div 
@@ -826,6 +828,8 @@ const App: React.FC = () => {
                             className="max-w-[240px] md:max-w-[350px] -my-12 mb-2 drop-shadow-2xl"
                             loading="eager"
                             fetchPriority="high"
+                            width="350"
+                            height="175"
                         />
 
                          <h2 className="text-2xl md:text-4xl font-bold text-white mb-8 brand-font leading-tight drop-shadow-md">
@@ -886,11 +890,14 @@ const App: React.FC = () => {
                             rel={service.link === '#' ? undefined : "noopener noreferrer"}
                             className={`flex justify-center items-center group relative transition-all duration-300 transform hover:-translate-y-1 ${service.link === '#' ? 'cursor-default opacity-80' : ''}`}
                             onClick={service.link === '#' ? (e) => e.preventDefault() : undefined}
+                            aria-label={`Luister op ${service.name}`}
                         >
                             <img 
                                 src={`${import.meta.env.BASE_URL}Image/${service.icon}`} 
                                 alt={`Listen on ${service.name}`} 
                                 className="w-12 h-12 md:w-16 md:h-16 object-contain"
+                                width="64"
+                                height="64"
                             />
                         </a>
                     ))}
@@ -915,6 +922,7 @@ const App: React.FC = () => {
                             ref={downloadButtonRef}
                             onClick={toggleDownload} 
                             className={`p-2 rounded flex items-center justify-center transition backdrop-blur-sm border ${isDownloadOpen ? 'bg-white text-[#d00018] border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/30'}`}
+                            aria-label="Download opties"
                          >
                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                          </button>
@@ -926,22 +934,22 @@ const App: React.FC = () => {
                                      Download als
                                  </div>
                                  <button onClick={() => handleDownload('Excel')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                     <img src={`${import.meta.env.BASE_URL}Image/xls.png`} alt="Excel" className="w-6 h-6 object-contain" />
+                                     <img src={`${import.meta.env.BASE_URL}Image/xls.png`} alt="Excel" className="w-6 h-6 object-contain" width="24" height="24" />
                                      <span className="font-medium">Excel</span>
                                  </button>
                                 <button onClick={() => handleDownload('PDF')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                    <img src={`${import.meta.env.BASE_URL}Image/pdf.png`} alt="PDF" className="w-6 h-6 object-contain" />
+                                    <img src={`${import.meta.env.BASE_URL}Image/pdf.png`} alt="PDF" className="w-6 h-6 object-contain" width="24" height="24" />
                                     <span className="font-medium">PDF</span>
                                 </button>
                                 <button onClick={() => handleDownload('Transfer')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                    <img src={`${import.meta.env.BASE_URL}Image/csv.png`} alt="CSV" className="w-6 h-6 object-contain" />
+                                    <img src={`${import.meta.env.BASE_URL}Image/csv.png`} alt="CSV" className="w-6 h-6 object-contain" width="24" height="24" />
                                     <span className="font-medium">CSV</span>
                                 </button>
                                  <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t border-gray-100 mt-1">
                                      Afspeellijst
                                  </div>
                                  <button onClick={() => handleDownload('Spotify')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                     <img src={`${import.meta.env.BASE_URL}Image/spotify.png`} alt="Spotify" className="w-6 h-6 object-contain" />
+                                     <img src={`${import.meta.env.BASE_URL}Image/spotify.png`} alt="Spotify" className="w-6 h-6 object-contain" width="24" height="24" />
                                      <div className="flex-1 flex items-center justify-between">
                                        <span className="font-medium">Spotify</span>
                                        {isSpotifyAuthenticated() && (
@@ -950,7 +958,7 @@ const App: React.FC = () => {
                                      </div>
                                  </button>
                                  <button onClick={() => handleDownload('YouTube Music')} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 border-t border-gray-100 transition">
-                                     <img src={`${import.meta.env.BASE_URL}Image/play.png`} alt="YouTube Music" className="w-6 h-6 object-contain" />
+                                     <img src={`${import.meta.env.BASE_URL}Image/play.png`} alt="YouTube Music" className="w-6 h-6 object-contain" width="24" height="24" />
                                      <div className="flex-1 flex items-center justify-between">
                                        <span className="font-medium">YouTube Music</span>
                                        {isYouTubeAuthenticated() && (
@@ -963,7 +971,7 @@ const App: React.FC = () => {
                                     Overig
                                 </div>
                                 <button onClick={() => { setIsSoundiizModalOpen(true); setIsDownloadOpen(false); }} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-gray-700 transition">
-                                    <img src={`${import.meta.env.BASE_URL}Image/url.png`} alt="URL" className="w-6 h-6 object-contain" />
+                                    <img src={`${import.meta.env.BASE_URL}Image/url.png`} alt="URL" className="w-6 h-6 object-contain" width="24" height="24" />
                                     <span className="font-medium">Playlist URL</span>
                                 </button>
                             </div>
@@ -1027,6 +1035,7 @@ const App: React.FC = () => {
                             value={selectedYear} 
                             onChange={(e) => setSelectedYear(e.target.value)}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-black"
+                            aria-label="Kies jaar"
                         >
                              <option value="all-time" className="bg-white text-gray-900">Allertijden</option>
                              {availableYears.map(y => <option key={y} value={y} className="bg-white text-gray-900">{y}</option>)}
@@ -1062,7 +1071,7 @@ const App: React.FC = () => {
                          value={searchQuery}
                          onChange={(e) => setSearchQuery(e.target.value)}
                      />
-                     <button onClick={() => searchQuery ? setSearchQuery('') : null} className="bg-[#d00018] w-14 flex items-center justify-center text-white hover:bg-[#b00014] transition">
+                     <button onClick={() => searchQuery ? setSearchQuery('') : null} className="bg-[#d00018] w-14 flex items-center justify-center text-white hover:bg-[#b00014] transition" aria-label="Zoekopdracht wissen">
                          {searchQuery ? (
                              <span className="text-white font-bold text-2xl">&times;</span>
                          ) : (
@@ -1141,7 +1150,7 @@ const App: React.FC = () => {
 
         </div>
 
-      </div>
+      </main>
 
       <footer className="mt-12 bg-black py-12 text-center text-white/50 text-sm">
            <div className="flex justify-center items-center gap-2 mb-4 opacity-50 grayscale hover:grayscale-0 transition">
@@ -1224,6 +1233,7 @@ const App: React.FC = () => {
                     setIsCreatingPlaylist(false);
                   }}
                   className="text-gray-400 hover:text-gray-600"
+                  aria-label="Sluiten"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1287,7 +1297,7 @@ const App: React.FC = () => {
           <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl animate-fade-in-up" onClick={e => e.stopPropagation()}>
              <div className="flex justify-between items-center mb-4">
                  <h3 className="text-xl font-bold text-gray-900">Playlist URL</h3>
-                 <button onClick={() => setIsSoundiizModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                 <button onClick={() => setIsSoundiizModalOpen(false)} className="text-gray-400 hover:text-gray-600" aria-label="Sluiten">
                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                  </button>
              </div>
