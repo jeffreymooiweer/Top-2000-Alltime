@@ -150,7 +150,7 @@ const SongCard: React.FC<SongCardProps> = memo(({ song, rank, previousRank, onSe
 
                 {/* Right Icon */}
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                    <img src={`${import.meta.env.BASE_URL}Image/chart.png`} alt="Chart" className="w-6 h-6 opacity-50" />
+                    <img src={`${import.meta.env.BASE_URL}Image/chart.png`} alt="Chart" className="w-6 h-6 opacity-50" width="24" height="24" />
                 </div>
         </div>
     </div>
