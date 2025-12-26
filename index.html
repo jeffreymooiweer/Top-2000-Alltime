@@ -18,8 +18,10 @@
     <meta property="og:title" content="Top 2000 Allertijden - De Complete Lijst & Statistieken" />
     <meta property="og:description" content="Bekijk de complete Top 2000 Allertijden. Ontdek de historie van alle nummers, filter op jaar, en maak direct afspeellijsten voor Spotify en YouTube." />
     <meta property="og:image" content="https://top2000allertijden.nl/Image/NPO_Radio_2_Top_2000_logo.png" />
+    <meta property="og:image:alt" content="NPO Radio 2 Top 2000 Logo" />
     <meta property="og:site_name" content="Top 2000 Allertijden" />
     <meta property="og:locale" content="nl_NL" />
+    <meta name="thumbnail" content="https://top2000allertijden.nl/Image/NPO_Radio_2_Top_2000_logo.png" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
@@ -81,23 +83,33 @@
 
     <!-- Structured Data -->
     <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "Top 2000 Allertijden",
-        "url": "https://top2000allertijden.nl/",
-        "description": "De ultieme lijst gebaseerd op historische data van NPO Radio 2.",
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": "https://top2000allertijden.nl/?q={search_term_string}",
-          "query-input": "required name=search_term_string"
+      [
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "Top 2000 Allertijden",
+          "url": "https://top2000allertijden.nl/",
+          "description": "De ultieme lijst gebaseerd op historische data van NPO Radio 2.",
+          "image": "https://top2000allertijden.nl/Image/NPO_Radio_2_Top_2000_logo.png",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://top2000allertijden.nl/?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          },
+          "author": {
+            "@type": "Person",
+            "name": "Jeffrey Mooiweer",
+            "url": "https://mooiweer.me"
+          }
         },
-        "author": {
-          "@type": "Person",
-          "name": "Jeffrey Mooiweer",
-          "url": "https://mooiweer.me"
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Top 2000 Allertijden",
+          "url": "https://top2000allertijden.nl/",
+          "logo": "https://top2000allertijden.nl/Image/NPO_Radio_2_Top_2000_logo.png"
         }
-      }
+      ]
     </script>
 
     <!-- Vite entry point -->
